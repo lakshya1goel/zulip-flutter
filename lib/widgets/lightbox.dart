@@ -1,7 +1,10 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:video_player/video_player.dart';
 
 import '../api/core.dart';
@@ -14,6 +17,8 @@ import 'dialog.dart';
 import 'page.dart';
 import 'clipboard.dart';
 import 'store.dart';
+import 'dart:io';
+import 'package:http/http.dart' as http;
 
 // TODO(#44): Add index of the image preview in the message, to not break if
 //   there are multiple image previews with the same URL in the same
@@ -86,6 +91,87 @@ class _CopyLinkButton extends StatelessWidget {
           successContent: Text(zulipLocalizations.successLinkCopied),
           data: ClipboardData(text: url.toString()));
       });
+  }
+}
+
+class _DownloadImageButton extends StatelessWidget {
+  const _DownloadImageButton({required this.url});
+  final Uri url;
+  Future<bool> _saveImageToGeneralStorage(BuildContext context, Uri imageUrl) async {
+    final zulipLocalizations = ZulipLocalizations.of(context);
+    final externalStoragePermission = await Permission.manageExternalStorage.status;
+    if (!externalStoragePermission.isGranted) {
+      final externalStatus = await Permission.manageExternalStorage.request();
+      if (externalStatus.isPermanentlyDenied) {
+        if (!context.mounted) return false;
+        final bool openSettings = await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(zulipLocalizations.permissionDeniedTitle),
+            content: Text(zulipLocalizations.storagePermissionPermanentlyDenied),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(zulipLocalizations.cancel),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(zulipLocalizations.openSettings),
+              ),
+            ],
+          ),
+        ) ?? false;
+
+        if (openSettings) {
+          await openAppSettings();
+        }
+        return false;
+      }
+      if (!externalStatus.isGranted) {
+        if (!context.mounted) return false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(zulipLocalizations.storagePermissionRequired)),
+        );
+        return false;
+      }
+    }
+    try {
+      final response = await http.get(imageUrl);
+      if (response.statusCode != 200) {
+        throw Exception(zulipLocalizations.imageDownloadFailed);
+      }
+      final directory = Directory('/storage/emulated/0/Download');
+      final filePath = '${directory.path}/${imageUrl.pathSegments.last}';
+      if (!directory.existsSync()) {
+        directory.createSync(recursive: true);
+      }
+      final file = File(filePath);
+      await file.writeAsBytes(response.bodyBytes);
+      if (!context.mounted) return true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(zulipLocalizations.imageDownloadSuccess)),
+      );
+      return true;
+    } catch (e) {
+      if (!context.mounted) return false;
+      showErrorDialog(
+        context: context,
+        title: zulipLocalizations.errorDialogTitle,
+        message: zulipLocalizations.imageDownloadError,
+      );
+      return false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final zulipLocalizations = ZulipLocalizations.of(context);
+
+    return IconButton(
+      tooltip: zulipLocalizations.downloadImageTooltip,
+      icon: const Icon(Icons.download_rounded),
+      onPressed: () => _saveImageToGeneralStorage(context, url),
+    );
   }
 }
 
@@ -260,6 +346,7 @@ class _ImageLightboxPageState extends State<_ImageLightboxPage> {
         _CopyLinkButton(url: widget.src),
         // TODO(#43): Share image
         // TODO(#42): Download image
+        _DownloadImageButton(url: widget.src)
       ]),
     );
   }

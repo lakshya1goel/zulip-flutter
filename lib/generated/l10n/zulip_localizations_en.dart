@@ -467,4 +467,31 @@ class ZulipLocalizationsEn extends ZulipLocalizations {
 
   @override
   String get errorNotificationOpenAccountMissing => 'The account associated with this notification no longer exists.';
+
+  @override
+  String get downloadImageTooltip => 'Download image';
+
+  @override
+  String get imageDownloadSuccess => 'Image downloaded successfully';
+
+  @override
+  String get imageDownloadError => 'Failed to download image';
+
+  @override
+  String get imageDownloadFailed => 'Failed to download image from server';
+
+  @override
+  String get storagePermissionRequired => 'Storage permission is required to download images';
+
+  @override
+  String get storagePermissionPermanentlyDenied => 'Storage permission is permanently denied. Please enable it in Settings to download images';
+
+  @override
+  String get permissionDeniedTitle => 'Permission Denied';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get openSettings => 'Open Settings';
 }

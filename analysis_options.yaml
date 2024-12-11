@@ -3,6 +3,8 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
+  errors:
+    unnecessary_nullable_for_final_variable_declarations: ignore
   language:
     strict-inference: true
     strict-raw-types: true
