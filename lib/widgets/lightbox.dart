@@ -1,4 +1,4 @@
-import 'dart:developer';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -97,13 +97,25 @@ class _CopyLinkButton extends StatelessWidget {
 class _DownloadImageButton extends StatelessWidget {
   const _DownloadImageButton({required this.url});
   final Uri url;
+
   Future<bool> _saveImageToGeneralStorage(BuildContext context, Uri imageUrl) async {
     final zulipLocalizations = ZulipLocalizations.of(context);
+
+    // Retrieve account info and construct headers for authorization
+    final store = PerAccountStoreWidget.of(context);
+    final headers = {
+      if (imageUrl.origin == store.account.realmUrl.origin)
+        ...authHeader(email: store.account.email, apiKey: store.account.apiKey),
+      ...userAgentHeader(),
+    };
+
+    // Request storage permission
     final externalStoragePermission = await Permission.manageExternalStorage.status;
     if (!externalStoragePermission.isGranted) {
       final externalStatus = await Permission.manageExternalStorage.request();
       if (externalStatus.isPermanentlyDenied) {
         if (!context.mounted) return false;
+
         final bool openSettings = await showDialog(
           context: context,
           builder: (context) => AlertDialog(
@@ -127,37 +139,55 @@ class _DownloadImageButton extends StatelessWidget {
         }
         return false;
       }
+
       if (!externalStatus.isGranted) {
         if (!context.mounted) return false;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(zulipLocalizations.storagePermissionRequired)),
         );
         return false;
       }
     }
+
     try {
-      final response = await http.get(imageUrl);
+      // Download the image with headers and a timeout of 30 seconds
+      final response = await http
+          .get(imageUrl, headers: headers)
+          .timeout(const Duration(seconds: 30));
+
       if (response.statusCode != 200) {
         throw Exception(zulipLocalizations.imageDownloadFailed);
       }
+
+      // Save the downloaded file to the Downloads directory
       final directory = Directory('/storage/emulated/0/Download');
-      final filePath = '${directory.path}/${imageUrl.pathSegments.last}';
       if (!directory.existsSync()) {
         directory.createSync(recursive: true);
       }
+
+      final filePath = '${directory.path}/${imageUrl.pathSegments.last}';
       final file = File(filePath);
       await file.writeAsBytes(response.bodyBytes);
+
+      // Show success message
       if (!context.mounted) return true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(zulipLocalizations.imageDownloadSuccess)),
       );
       return true;
-    } catch (e) {
+    } on TimeoutException {
+      // Handle timeout exception
       if (!context.mounted) return false;
-      showErrorDialog(
-        context: context,
-        title: zulipLocalizations.errorDialogTitle,
-        message: zulipLocalizations.imageDownloadError,
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(zulipLocalizations.downloadTimeout)),
+      );
+      return false;
+    } catch (e) {
+      // Handle other exceptions
+      if (!context.mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(zulipLocalizations.imageDownloadError)),
       );
       return false;
     }
@@ -166,7 +196,6 @@ class _DownloadImageButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final zulipLocalizations = ZulipLocalizations.of(context);
-
     return IconButton(
       tooltip: zulipLocalizations.downloadImageTooltip,
       icon: const Icon(Icons.download_rounded),
@@ -342,7 +371,9 @@ class _ImageLightboxPageState extends State<_ImageLightboxPage> {
     return BottomAppBar(
       color: color,
       elevation: elevation,
-      child: Row(children: [
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
         _CopyLinkButton(url: widget.src),
         // TODO(#43): Share image
         // TODO(#42): Download image

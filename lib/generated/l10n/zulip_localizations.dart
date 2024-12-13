@@ -523,10 +523,10 @@ abstract class ZulipLocalizations {
   /// **'OK'**
   String get errorDialogContinue;
 
-  /// Generic title for error dialog.
+  /// Title of error dailog box in case of download failure
   ///
   /// In en, this message translates to:
-  /// **'Error'**
+  /// **'Error Occured'**
   String get errorDialogTitle;
 
   /// Button label for snack bar button that opens a dialog with more details.
@@ -877,35 +877,11 @@ abstract class ZulipLocalizations {
   /// **'The account associated with this notification no longer exists.'**
   String get errorNotificationOpenAccountMissing;
 
-  /// Tooltip for download image button in lightbox.
+  /// Title for permission denied dialog
   ///
   /// In en, this message translates to:
-  /// **'Download image'**
-  String get downloadImageTooltip;
-
-  /// Message shown when image download is successful.
-  ///
-  /// In en, this message translates to:
-  /// **'Image downloaded successfully'**
-  String get imageDownloadSuccess;
-
-  /// Error message when image download fails.
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to download image'**
-  String get imageDownloadError;
-
-  /// Message when image download fails due to server error.
-  ///
-  /// In en, this message translates to:
-  /// **'Server error while downloading image'**
-  String get imageDownloadFailed;
-
-  /// Message when storage permission is needed.
-  ///
-  /// In en, this message translates to:
-  /// **'Storage permission is required to download images'**
-  String get storagePermissionRequired;
+  /// **'Permission Denied'**
+  String get permissionDeniedTitle;
 
   /// Message when storage permission is permanently denied.
   ///
@@ -913,24 +889,53 @@ abstract class ZulipLocalizations {
   /// **'Storage permission is permanently denied. Please enable it in system settings.'**
   String get storagePermissionPermanentlyDenied;
 
-  /// Title for permission denied dialog.
-  ///
-  /// In en, this message translates to:
-  /// **'Permission Denied'**
-  String get permissionDeniedTitle;
-
-  /// Text for cancelling the permanent permission denied dialog.
+  /// Text for cancelling the permanent permission denied dialog
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
 
-  /// Message for opening settings through permission denied dialog.
+  /// Message for opening settings through permission denied dialog
   ///
   /// In en, this message translates to:
   /// **'Open Settings'**
   String get openSettings;
 
+  /// Message when storage permission is needed
+  ///
+  /// In en, this message translates to:
+  /// **'Storage permission is required to download images'**
+  String get storagePermissionRequired;
+
+  /// Message when image download fails due to server error
+  ///
+  /// In en, this message translates to:
+  /// **'Server error while downloading image'**
+  String get imageDownloadFailed;
+
+  /// Message shown when image download is successful
+  ///
+  /// In en, this message translates to:
+  /// **'Image downloaded successfully'**
+  String get imageDownloadSuccess;
+
+  /// Error message when image download fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to download image'**
+  String get imageDownloadError;
+
+  /// Tooltip for download image button in lightbox
+  ///
+  /// In en, this message translates to:
+  /// **'Download image'**
+  String get downloadImageTooltip;
+
+  /// Message shown when the image download exceeds the timeout limit
+  ///
+  /// In en, this message translates to:
+  /// **'Download timed out. Please try again.'**
+  String get downloadTimeout;
 }
 
 class _ZulipLocalizationsDelegate extends LocalizationsDelegate<ZulipLocalizations> {

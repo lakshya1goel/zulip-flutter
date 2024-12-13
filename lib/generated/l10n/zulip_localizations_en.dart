@@ -256,7 +256,7 @@ class ZulipLocalizationsEn extends ZulipLocalizations {
   String get errorDialogContinue => 'OK';
 
   @override
-  String get errorDialogTitle => 'Error';
+  String get errorDialogTitle => 'Error Occured';
 
   @override
   String get snackBarDetails => 'Details';
@@ -469,7 +469,22 @@ class ZulipLocalizationsEn extends ZulipLocalizations {
   String get errorNotificationOpenAccountMissing => 'The account associated with this notification no longer exists.';
 
   @override
-  String get downloadImageTooltip => 'Download image';
+  String get permissionDeniedTitle => 'Permission Denied';
+
+  @override
+  String get storagePermissionPermanentlyDenied => 'Storage permission is permanently denied. Please enable it in system settings.';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get openSettings => 'Open Settings';
+
+  @override
+  String get storagePermissionRequired => 'Storage permission is required to download images';
+
+  @override
+  String get imageDownloadFailed => 'Server error while downloading image';
 
   @override
   String get imageDownloadSuccess => 'Image downloaded successfully';
@@ -478,20 +493,8 @@ class ZulipLocalizationsEn extends ZulipLocalizations {
   String get imageDownloadError => 'Failed to download image';
 
   @override
-  String get imageDownloadFailed => 'Failed to download image from server';
+  String get downloadImageTooltip => 'Download image';
 
   @override
-  String get storagePermissionRequired => 'Storage permission is required to download images';
-
-  @override
-  String get storagePermissionPermanentlyDenied => 'Storage permission is permanently denied. Please enable it in Settings to download images';
-
-  @override
-  String get permissionDeniedTitle => 'Permission Denied';
-
-  @override
-  String get cancel => 'Cancel';
-
-  @override
-  String get openSettings => 'Open Settings';
+  String get downloadTimeout => 'Download timed out. Please try again.';
 }
