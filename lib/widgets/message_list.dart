@@ -899,8 +899,9 @@ class RecipientHeader extends StatelessWidget {
     final message = this.message;
     return switch (message) {
       StreamMessage() => StreamMessageRecipientHeader(message: message,
-        showStream: _containsDifferentChannels(narrow)),
-      DmMessage() => DmRecipientHeader(message: message),
+        showStream: _containsDifferentChannels(narrow),
+        inTopicNarrow: narrow is TopicNarrow),
+      DmMessage() => DmRecipientHeader(message: message, inDmNarrow: narrow is DmNarrow),
     };
   }
 }
@@ -1015,10 +1016,12 @@ class StreamMessageRecipientHeader extends StatelessWidget {
     super.key,
     required this.message,
     required this.showStream,
+    required this.inTopicNarrow,
   });
 
   final StreamMessage message;
   final bool showStream;
+  final bool inTopicNarrow;
 
   @override
   Widget build(BuildContext context) {
@@ -1105,9 +1108,9 @@ class StreamMessageRecipientHeader extends StatelessWidget {
         ]));
 
     return GestureDetector(
-      onTap: () => Navigator.push(context,
+      onTap: !inTopicNarrow ? () => Navigator.push(context,
         MessageListPage.buildRoute(context: context,
-          narrow: TopicNarrow.ofMessage(message))),
+          narrow: TopicNarrow.ofMessage(message))) : null,
       onLongPress: () => showTopicActionSheet(context,
         channelId: message.streamId, topic: topic),
       child: ColoredBox(
@@ -1126,9 +1129,10 @@ class StreamMessageRecipientHeader extends StatelessWidget {
 }
 
 class DmRecipientHeader extends StatelessWidget {
-  const DmRecipientHeader({super.key, required this.message});
+  const DmRecipientHeader({super.key, required this.message, required this.inDmNarrow});
 
   final DmMessage message;
+  final bool inDmNarrow;
 
   @override
   Widget build(BuildContext context) {
@@ -1149,9 +1153,9 @@ class DmRecipientHeader extends StatelessWidget {
     final messageListTheme = MessageListTheme.of(context);
 
     return GestureDetector(
-      onTap: () => Navigator.push(context,
+      onTap: !inDmNarrow ? () => Navigator.push(context,
         MessageListPage.buildRoute(context: context,
-          narrow: DmNarrow.ofMessage(message, selfUserId: store.selfUserId))),
+          narrow: DmNarrow.ofMessage(message, selfUserId: store.selfUserId))) : null,
       child: ColoredBox(
         color: messageListTheme.dmRecipientHeaderBg,
         child: Padding(
