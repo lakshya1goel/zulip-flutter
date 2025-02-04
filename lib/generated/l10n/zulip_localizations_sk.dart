@@ -299,7 +299,7 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
   }
 
   @override
-  String get messageListGroupYouWithYourself => 'You with yourself';
+  String get messageListGroupYouWithYourself => 'Messages with yourself';
 
   @override
   String get contentValidationErrorTooLong => 'Message length shouldn\'t be greater than 10000 characters.';
