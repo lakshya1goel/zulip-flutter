@@ -253,11 +253,11 @@ class HeadingNode extends BlockInlineContainerNode {
 
 enum ListStyle { ordered, unordered }
 
-class ListNode extends BlockContentNode {
-  const ListNode(this.style, this.items, {super.debugHtmlNode});
+abstract class ListNode extends BlockContentNode {
+  const ListNode({required this.items, super.debugHtmlNode});
 
-  final ListStyle style;
   final List<List<BlockContentNode>> items;
+  ListStyle get style;
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
@@ -273,6 +273,28 @@ class ListNode extends BlockContentNode {
         _BlockContentListNode(nodes).toDiagnosticsNode(name: 'item $i'))
       .toList();
   }
+}
+
+class OrderedListNode extends ListNode {
+  const OrderedListNode({this.start = 1, required super.items, super.debugHtmlNode});
+
+  final int start;
+
+  @override
+  ListStyle get style => ListStyle.ordered;
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(IntProperty('start', start));
+  }
+}
+
+class UnorderedListNode extends ListNode {
+  const UnorderedListNode({required super.items, super.debugHtmlNode});
+
+  @override
+  ListStyle get style => ListStyle.unordered;
 }
 
 class QuotationNode extends BlockContentNode {
@@ -1081,7 +1103,13 @@ class _ZulipContentParser {
       items.add(parseImplicitParagraphBlockContentList(item.nodes));
     }
 
-    return ListNode(listStyle!, items, debugHtmlNode: debugHtmlNode);
+    if (listStyle == ListStyle.ordered) {
+      final startAttr = element.attributes['start'];
+      final start = startAttr != null ? (int.tryParse(startAttr) ?? 1) : 1;
+      return OrderedListNode(start: start, items: items, debugHtmlNode: debugHtmlNode);
+    } else {
+      return UnorderedListNode(items: items, debugHtmlNode: debugHtmlNode);
+    }
   }
 
   BlockContentNode parseSpoilerNode(dom.Element divElement) {

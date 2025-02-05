@@ -491,8 +491,7 @@ class ListNodeWidget extends StatelessWidget {
         //   but that comes out too close to item; not sure what's fixing that
         //   in a browser
         case ListStyle.unordered: marker = "•   "; break;
-        // TODO(#59) ordered lists starting not at 1
-        case ListStyle.ordered: marker = "${index+1}. "; break;
+        case ListStyle.ordered: marker = "${(node as OrderedListNode).start + index}. "; break;
       }
       return ListItemWidget(marker: marker, nodes: item);
     });
@@ -516,7 +515,6 @@ class ListItemWidget extends StatelessWidget {
       textBaseline: localizedTextBaseline(context),
       children: [
         SizedBox(
-          width: 20, // TODO handle long numbers in <ol>, like https://github.com/zulip/zulip/pull/25063
           child: Align(
             alignment: AlignmentDirectional.topEnd, child: Text(marker))),
         Expanded(child: BlockContentList(nodes: nodes)),

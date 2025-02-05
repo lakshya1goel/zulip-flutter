@@ -1158,4 +1158,19 @@ void main() {
       check(linkText.textAlign).equals(TextAlign.center);
     });
   });
+
+  group('ListNodeWidget', () {
+    testWidgets('ordered list with custom start', (tester) async {
+      await prepareContent(tester, plainContent('''
+        <ol start="3">
+          <li>third</li>
+          <li>fourth</li>
+        </ol>'''));
+
+      expect(find.text('3. '), findsOneWidget);
+      expect(find.text('4. '), findsOneWidget);
+      expect(find.text('third'), findsOneWidget);
+      expect(find.text('fourth'), findsOneWidget);
+    });
+  });
 }
