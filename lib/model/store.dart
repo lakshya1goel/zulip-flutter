@@ -53,8 +53,31 @@ export 'database.dart' show Account, AccountsCompanion, AccountAlreadyExistsExce
 ///  * [LiveGlobalStore], the implementation of this class that
 ///    we use outside of tests.
 abstract class GlobalStore extends ChangeNotifier {
-  GlobalStore({required Iterable<Account> accounts})
-    : _accounts = Map.fromEntries(accounts.map((a) => MapEntry(a.id, a)));
+  GlobalStore({
+    required GlobalSettingsData globalSettings,
+    required Iterable<Account> accounts,
+  })
+    : _globalSettings = globalSettings,
+      _accounts = Map.fromEntries(accounts.map((a) => MapEntry(a.id, a)));
+
+  /// A cache of the [GlobalSettingsData] singleton in the underlying data store.
+  GlobalSettingsData get globalSettings => _globalSettings;
+  GlobalSettingsData _globalSettings;
+
+  /// Update the global settings in the store, returning the new version.
+  ///
+  /// The global settings must already exist in the store.
+  Future<GlobalSettingsData> updateGlobalSettings(GlobalSettingsCompanion data) async {
+    await doUpdateGlobalSettings(data);
+    _globalSettings = _globalSettings.copyWithCompanion(data);
+    notifyListeners();
+    return _globalSettings;
+  }
+
+  /// Update the global settings in the underlying data store.
+  ///
+  /// This should only be called from [updateGlobalSettings].
+  Future<void> doUpdateGlobalSettings(GlobalSettingsCompanion data);
 
   /// A cache of the [Accounts] table in the underlying data store.
   final Map<int, Account> _accounts;
@@ -124,13 +147,17 @@ abstract class GlobalStore extends ChangeNotifier {
     // It's up to us.  Start loading.
     future = loadPerAccount(accountId);
     _perAccountStoresLoading[accountId] = future;
-    store = await future;
-    _setPerAccount(accountId, store);
-    unawaited(_perAccountStoresLoading.remove(accountId));
-    return store;
+    try {
+      store = await future;
+      _setPerAccount(accountId, store);
+      return store;
+    } finally {
+      unawaited(_perAccountStoresLoading.remove(accountId));
+    }
   }
 
   Future<void> _reloadPerAccount(int accountId) async {
+    assert(_accounts.containsKey(accountId));
     assert(_perAccountStores.containsKey(accountId));
     assert(!_perAccountStoresLoading.containsKey(accountId));
     final store = await loadPerAccount(accountId);
@@ -146,6 +173,11 @@ abstract class GlobalStore extends ChangeNotifier {
 
   /// Load per-account data for the given account, unconditionally.
   ///
+  /// The account for `accountId` must exist.
+  ///
+  /// Throws [AccountNotFoundException] if after any async gap
+  /// the account has been removed.
+  ///
   /// This method should be called only by the implementation of [perAccount].
   /// Other callers interested in per-account data should use [perAccount]
   /// and/or [perAccountSync].
@@ -160,35 +192,29 @@ abstract class GlobalStore extends ChangeNotifier {
           // The API key is invalid and the store can never be loaded
           // unless the user retries manually.
           final account = getAccount(accountId);
-          if (account == null) {
-            // The account was logged out during `await doLoadPerAccount`.
-            // Here, that seems possible only by the user's own action;
-            // the logout can't have been done programmatically.
-            // Even if it were, it would have come with its own UI feedback.
-            // Anyway, skip showing feedback, to not be confusing or repetitive.
-            throw AccountNotFoundException();
-          }
+          assert(account != null); // doLoadPerAccount would have thrown AccountNotFoundException
           final zulipLocalizations = GlobalLocalizations.zulipLocalizations;
           reportErrorToUserModally(
             zulipLocalizations.errorCouldNotConnectTitle,
             message: zulipLocalizations.errorInvalidApiKeyMessage(
-              account.realmUrl.toString()));
+              account!.realmUrl.toString()));
           await logOutAccount(this, accountId);
           throw AccountNotFoundException();
         default:
           rethrow;
       }
     }
-    if (!_accounts.containsKey(accountId)) {
-      // TODO(#1354): handle this earlier
-      // [removeAccount] was called during [doLoadPerAccount].
-      store.dispose();
-      throw AccountNotFoundException();
-    }
+    // doLoadPerAccount would have thrown AccountNotFoundException
+    assert(_accounts.containsKey(accountId));
     return store;
   }
 
   /// Load per-account data for the given account, unconditionally.
+  ///
+  /// The account for `accountId` must exist.
+  ///
+  /// Throws [AccountNotFoundException] if after any async gap
+  /// the account has been removed.
   ///
   /// This method should be called only by [loadPerAccount].
   Future<PerAccountStore> doLoadPerAccount(int accountId);
@@ -240,6 +266,8 @@ abstract class GlobalStore extends ChangeNotifier {
   Future<void> doUpdateAccount(int accountId, AccountsCompanion data);
 
   /// Remove an account from the store.
+  ///
+  /// The account for `accountId` must exist.
   Future<void> removeAccount(int accountId) async {
     assert(_accounts.containsKey(accountId));
     await doRemoveAccount(accountId);
@@ -814,6 +842,7 @@ Uri? tryResolveUrl(Uri baseUrl, String reference) {
 class LiveGlobalStore extends GlobalStore {
   LiveGlobalStore._({
     required AppDatabase db,
+    required super.globalSettings,
     required super.accounts,
   }) : _db = db;
 
@@ -830,8 +859,11 @@ class LiveGlobalStore extends GlobalStore {
   // by doing this loading up front before constructing a [GlobalStore].
   static Future<GlobalStore> load() async {
     final db = AppDatabase(NativeDatabase.createInBackground(await _dbFile()));
+    final globalSettings = await db.ensureGlobalSettings();
     final accounts = await db.select(db.accounts).get();
-    return LiveGlobalStore._(db: db, accounts: accounts);
+    return LiveGlobalStore._(db: db,
+      globalSettings: globalSettings,
+      accounts: accounts);
   }
 
   /// The file path to use for the app database.
@@ -854,6 +886,12 @@ class LiveGlobalStore extends GlobalStore {
   }
 
   final AppDatabase _db;
+
+  @override
+  Future<void> doUpdateGlobalSettings(GlobalSettingsCompanion data) async {
+    final rowsAffected = await _db.update(_db.globalSettings).write(data);
+    assert(rowsAffected == 1);
+  }
 
   @override
   Future<PerAccountStore> doLoadPerAccount(int accountId) async {
@@ -908,15 +946,31 @@ class UpdateMachine {
     store.updateMachine = this;
   }
 
-  /// Load the user's data from the server, and start an event queue going.
+  /// Load data for the given account from the server,
+  /// and start an event queue going.
+  ///
+  /// The account for `accountId` must exist.
+  ///
+  /// Throws [AccountNotFoundException] if after any async gap
+  /// the account has been removed.
   ///
   /// In the future this might load an old snapshot from local storage first.
   static Future<UpdateMachine> load(GlobalStore globalStore, int accountId) async {
     Account account = globalStore.getAccount(accountId)!;
     final connection = globalStore.apiConnectionFromAccount(account);
 
+    void stopAndThrowIfNoAccount() {
+      final account = globalStore.getAccount(accountId);
+      if (account == null) {
+        assert(debugLog('Account logged out during UpdateMachine.load'));
+        connection.close();
+        throw AccountNotFoundException();
+      }
+    }
+
     final stopwatch = Stopwatch()..start();
-    final initialSnapshot = await _registerQueueWithRetry(connection);
+    final initialSnapshot = await _registerQueueWithRetry(connection,
+      stopAndThrowIfNoAccount: stopAndThrowIfNoAccount);
     final t = (stopwatch..stop()).elapsed;
     assert(debugLog("initial fetch time: ${t.inMilliseconds}ms"));
 
@@ -958,13 +1012,20 @@ class UpdateMachine {
 
   bool _disposed = false;
 
+  /// Make the register-queue request, with retries.
+  ///
+  /// After each async gap, calls [stopAndThrowIfNoAccount].
   static Future<InitialSnapshot> _registerQueueWithRetry(
-      ApiConnection connection) async {
+    ApiConnection connection, {
+    required void Function() stopAndThrowIfNoAccount,
+  }) async {
     BackoffMachine? backoffMachine;
     while (true) {
+      InitialSnapshot? result;
       try {
-        return await registerQueue(connection);
+        result = await registerQueue(connection);
       } catch (e, s) {
+        stopAndThrowIfNoAccount();
         // TODO(#890): tell user if initial-fetch errors persist, or look non-transient
         switch (e) {
           case HttpException(httpStatus: 401):
@@ -979,7 +1040,12 @@ class UpdateMachine {
         }
         assert(debugLog('Backing off, then will retry…'));
         await (backoffMachine ??= BackoffMachine()).wait();
+        stopAndThrowIfNoAccount();
         assert(debugLog('… Backoff wait complete, retrying initial fetch.'));
+      }
+      if (result != null) {
+        stopAndThrowIfNoAccount();
+        return result;
       }
     }
   }

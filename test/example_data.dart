@@ -9,7 +9,9 @@ import 'package:zulip/api/model/submessage.dart';
 import 'package:zulip/api/route/messages.dart';
 import 'package:zulip/api/route/realm.dart';
 import 'package:zulip/api/route/channels.dart';
+import 'package:zulip/model/database.dart';
 import 'package:zulip/model/narrow.dart';
+import 'package:zulip/model/settings.dart';
 import 'package:zulip/model/store.dart';
 
 import 'model/test_store.dart';
@@ -653,11 +655,7 @@ UpdateMessageEvent updateMessageEditEvent(
     messageIds: [messageId],
     flags: flags ?? origMessage.flags,
     editTimestamp: editTimestamp ?? 1234567890, // TODO generate timestamp
-    origStreamId: origMessage is StreamMessage ? origMessage.streamId : null,
-    newStreamId: null,
-    propagateMode: null,
-    origTopic: null,
-    newTopic: null,
+    moveData: null,
     origContent: 'some probably-mismatched old Markdown',
     origRenderedContent: origMessage.content,
     content: 'some probably-mismatched new Markdown',
@@ -679,8 +677,6 @@ UpdateMessageEvent _updateMessageMoveEvent(
 }) {
   _checkPositive(origStreamId, 'stream ID');
   _checkPositive(newStreamId, 'stream ID');
-  assert(newTopic != origTopic
-         || (newStreamId != null && newStreamId != origStreamId));
   assert(messageIds.isNotEmpty);
   return UpdateMessageEvent(
     id: 0,
@@ -690,11 +686,13 @@ UpdateMessageEvent _updateMessageMoveEvent(
     messageIds: messageIds,
     flags: flags,
     editTimestamp: 1234567890, // TODO generate timestamp
-    origStreamId: origStreamId,
-    newStreamId: newStreamId,
-    propagateMode: propagateMode,
-    origTopic: origTopic,
-    newTopic: newTopic,
+    moveData: UpdateMessageMoveData(
+      origStreamId: origStreamId,
+      newStreamId: newStreamId ?? origStreamId,
+      origTopic: origTopic,
+      newTopic: newTopic ?? origTopic,
+      propagateMode: propagateMode,
+    ),
     origContent: origContent,
     origRenderedContent: origContent,
     content: newContent,
@@ -876,8 +874,21 @@ ChannelUpdateEvent channelUpdateEvent(
 // The entire per-account or global state.
 //
 
-TestGlobalStore globalStore({List<Account> accounts = const []}) {
-  return TestGlobalStore(accounts: accounts);
+GlobalSettingsData globalSettings({
+  ThemeSetting? themeSetting,
+  BrowserPreference? browserPreference,
+}) {
+  return GlobalSettingsData(
+    themeSetting: themeSetting,
+    browserPreference: browserPreference,
+  );
+}
+
+TestGlobalStore globalStore({
+  GlobalSettingsData? globalSettings,
+  List<Account> accounts = const [],
+}) {
+  return TestGlobalStore(globalSettings: globalSettings, accounts: accounts);
 }
 const _globalStore = globalStore;
 
@@ -968,9 +979,14 @@ PerAccountStore store({
 }
 const _store = store;
 
-UpdateMachine updateMachine({Account? account, InitialSnapshot? initialSnapshot}) {
+UpdateMachine updateMachine({
+  GlobalStore? globalStore,
+  Account? account,
+  InitialSnapshot? initialSnapshot,
+}) {
   initialSnapshot ??= _initialSnapshot();
-  final store = _store(account: account, initialSnapshot: initialSnapshot);
+  final store = _store(globalStore: globalStore,
+    account: account, initialSnapshot: initialSnapshot);
   return UpdateMachine.fromInitialSnapshot(
     store: store, initialSnapshot: initialSnapshot);
 }

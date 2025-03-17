@@ -3,7 +3,10 @@ import 'package:zulip/api/core.dart';
 import 'package:zulip/api/model/initial_snapshot.dart';
 import 'package:zulip/api/model/model.dart';
 import 'package:zulip/model/autocomplete.dart';
+import 'package:zulip/model/binding.dart';
+import 'package:zulip/model/database.dart';
 import 'package:zulip/model/recent_dm_conversations.dart';
+import 'package:zulip/model/settings.dart';
 import 'package:zulip/model/store.dart';
 import 'package:zulip/model/unreads.dart';
 
@@ -20,10 +23,18 @@ extension AccountChecks on Subject<Account> {
 }
 
 extension GlobalStoreChecks on Subject<GlobalStore> {
+  Subject<GlobalSettingsData> get globalSettings => has((x) => x.globalSettings, 'globalSettings');
   Subject<Iterable<Account>> get accounts => has((x) => x.accounts, 'accounts');
   Subject<Iterable<int>> get accountIds => has((x) => x.accountIds, 'accountIds');
   Subject<Iterable<({ int accountId, Account account })>> get accountEntries => has((x) => x.accountEntries, 'accountEntries');
   Subject<Account?> getAccount(int id) => has((x) => x.getAccount(id), 'getAccount($id)');
+}
+
+extension GlobalSettingsDataChecks on Subject<GlobalSettingsData> {
+  Subject<ThemeSetting?> get themeSetting => has((x) => x.themeSetting, 'themeSetting');
+  Subject<BrowserPreference?> get browserPreference => has((x) => x.browserPreference, 'browserPreference');
+  Subject<BrowserPreference> get effectiveBrowserPreference => has((x) => x.effectiveBrowserPreference, 'effectiveBrowserPreference');
+  Subject<UrlLaunchMode> getUrlLaunchMode(Uri url) => has((x) => x.getUrlLaunchMode(url), 'getUrlLaunchMode');
 }
 
 extension PerAccountStoreChecks on Subject<PerAccountStore> {
