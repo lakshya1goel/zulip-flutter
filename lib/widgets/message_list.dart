@@ -43,9 +43,6 @@ class MessageListTheme extends ThemeExtension<MessageListTheme> {
     unreadMarker: const HSLColor.fromAHSL(1, 227, 0.78, 0.59).toColor(),
 
     unreadMarkerGap: Colors.white.withValues(alpha: 0.6),
-
-    // TODO(design) this seems ad-hoc; is there a better color?
-    unsubscribedStreamRecipientHeaderBg: const Color(0xfff5f5f5),
   );
 
   static final dark = MessageListTheme._(
@@ -63,9 +60,6 @@ class MessageListTheme extends ThemeExtension<MessageListTheme> {
     unreadMarker: const HSLColor.fromAHSL(0.75, 227, 0.78, 0.59).toColor(),
 
     unreadMarkerGap: Colors.transparent,
-
-    // TODO(design) this is ad-hoc and untested; is there a better color?
-    unsubscribedStreamRecipientHeaderBg: const Color(0xff0a0a0a),
   );
 
   MessageListTheme._({
@@ -76,7 +70,6 @@ class MessageListTheme extends ThemeExtension<MessageListTheme> {
     required this.streamRecipientHeaderChevronRight,
     required this.unreadMarker,
     required this.unreadMarkerGap,
-    required this.unsubscribedStreamRecipientHeaderBg,
   });
 
   /// The [MessageListTheme] from the context's active theme.
@@ -96,7 +89,6 @@ class MessageListTheme extends ThemeExtension<MessageListTheme> {
   final Color streamRecipientHeaderChevronRight;
   final Color unreadMarker;
   final Color unreadMarkerGap;
-  final Color unsubscribedStreamRecipientHeaderBg;
 
   @override
   MessageListTheme copyWith({
@@ -107,7 +99,6 @@ class MessageListTheme extends ThemeExtension<MessageListTheme> {
     Color? streamRecipientHeaderChevronRight,
     Color? unreadMarker,
     Color? unreadMarkerGap,
-    Color? unsubscribedStreamRecipientHeaderBg,
   }) {
     return MessageListTheme._(
       bgMessageRegular: bgMessageRegular ?? this.bgMessageRegular,
@@ -117,7 +108,6 @@ class MessageListTheme extends ThemeExtension<MessageListTheme> {
       streamRecipientHeaderChevronRight: streamRecipientHeaderChevronRight ?? this.streamRecipientHeaderChevronRight,
       unreadMarker: unreadMarker ?? this.unreadMarker,
       unreadMarkerGap: unreadMarkerGap ?? this.unreadMarkerGap,
-      unsubscribedStreamRecipientHeaderBg: unsubscribedStreamRecipientHeaderBg ?? this.unsubscribedStreamRecipientHeaderBg,
     );
   }
 
@@ -134,7 +124,6 @@ class MessageListTheme extends ThemeExtension<MessageListTheme> {
       streamRecipientHeaderChevronRight: Color.lerp(streamRecipientHeaderChevronRight, other.streamRecipientHeaderChevronRight, t)!,
       unreadMarker: Color.lerp(unreadMarker, other.unreadMarker, t)!,
       unreadMarkerGap: Color.lerp(unreadMarkerGap, other.unreadMarkerGap, t)!,
-      unsubscribedStreamRecipientHeaderBg: Color.lerp(unsubscribedStreamRecipientHeaderBg, other.unsubscribedStreamRecipientHeaderBg, t)!,
     );
   }
 }
@@ -225,9 +214,8 @@ class _MessageListPageState extends State<MessageListPage> implements MessageLis
       case ChannelNarrow(:final streamId):
       case TopicNarrow(:final streamId):
         final subscription = store.subscriptions[streamId];
-        appBarBackgroundColor = subscription != null
-          ? colorSwatchFor(context, subscription).barBackground
-          : messageListTheme.unsubscribedStreamRecipientHeaderBg;
+        appBarBackgroundColor =
+          colorSwatchFor(context, subscription).barBackground;
         // All recipient headers will match this color; remove distracting line
         // (but are recipient headers even needed for topic narrows?)
         removeAppBarBottomBorder = true;
@@ -1004,25 +992,32 @@ class MessageItem extends StatelessWidget {
     this.trailingWhitespace,
   });
 
-  final MessageListMessageItem item;
+  final MessageListMessageBaseItem item;
   final Widget header;
   final double? trailingWhitespace;
 
   @override
   Widget build(BuildContext context) {
-    final message = item.message;
     final messageListTheme = MessageListTheme.of(context);
+
+    final item = this.item;
+    Widget child = ColoredBox(
+      color: messageListTheme.bgMessageRegular,
+      child: Column(children: [
+        switch (item) {
+          MessageListMessageItem() => MessageWithPossibleSender(item: item),
+        },
+        if (trailingWhitespace != null && item.isLastInBlock) SizedBox(height: trailingWhitespace!),
+      ]));
+    if (item case MessageListMessageItem(:final message)) {
+      child = _UnreadMarker(
+        isRead: message.flags.contains(MessageFlag.read),
+        child: child);
+    }
     return StickyHeaderItem(
       allowOverflow: !item.isLastInBlock,
       header: header,
-      child: _UnreadMarker(
-        isRead: message.flags.contains(MessageFlag.read),
-        child: ColoredBox(
-          color: messageListTheme.bgMessageRegular,
-          child: Column(children: [
-            MessageWithPossibleSender(item: item),
-            if (trailingWhitespace != null && item.isLastInBlock) SizedBox(height: trailingWhitespace!),
-          ]))));
+      child: child);
   }
 }
 
@@ -1091,24 +1086,15 @@ class StreamMessageRecipientHeader extends StatelessWidget {
     //   https://github.com/zulip/zulip-mobile/issues/5511
     final store = PerAccountStoreWidget.of(context);
     final designVariables = DesignVariables.of(context);
+    final messageListTheme = MessageListTheme.of(context);
     final zulipLocalizations = ZulipLocalizations.of(context);
 
     final streamId = message.conversation.streamId;
     final topic = message.conversation.topic;
 
-    final messageListTheme = MessageListTheme.of(context);
-
-    final subscription = store.subscriptions[streamId];
-    final Color backgroundColor;
-    final Color iconColor;
-    if (subscription != null) {
-      final swatch = colorSwatchFor(context, subscription);
-      backgroundColor = swatch.barBackground;
-      iconColor = swatch.iconOnBarBackground;
-    } else {
-      backgroundColor = messageListTheme.unsubscribedStreamRecipientHeaderBg;
-      iconColor = designVariables.title;
-    }
+    final swatch = colorSwatchFor(context, store.subscriptions[streamId]);
+    final backgroundColor = swatch.barBackground;
+    final iconColor = swatch.iconOnBarBackground;
 
     final Widget streamWidget;
     if (!_containsDifferentChannels(narrow)) {
@@ -1359,14 +1345,14 @@ String formatHeaderDate(
   }
 }
 
-/// A Zulip message, showing the sender's name and avatar if specified.
-// Design referenced from:
-//   - https://github.com/zulip/zulip-mobile/issues/5511
-//   - https://www.figma.com/file/1JTNtYo9memgW7vV6d0ygq/Zulip-Mobile?node-id=538%3A20849&mode=dev
-class MessageWithPossibleSender extends StatelessWidget {
-  const MessageWithPossibleSender({super.key, required this.item});
+// TODO(i18n): web seems to ignore locale in formatting time, but we could do better
+final _kMessageTimestampFormat = DateFormat('h:mm aa', 'en_US');
 
-  final MessageListMessageItem item;
+class _SenderRow extends StatelessWidget {
+  const _SenderRow({required this.message, required this.showTimestamp});
+
+  final Message message;
+  final bool showTimestamp;
 
   @override
   Widget build(BuildContext context) {
@@ -1374,14 +1360,12 @@ class MessageWithPossibleSender extends StatelessWidget {
     final messageListTheme = MessageListTheme.of(context);
     final designVariables = DesignVariables.of(context);
 
-    final message = item.message;
     final sender = store.getUser(message.senderId);
-
-    Widget? senderRow;
-    if (item.showSender) {
-      final time = _kMessageTimestampFormat
-        .format(DateTime.fromMillisecondsSinceEpoch(1000 * message.timestamp));
-      senderRow = Row(
+    final time = _kMessageTimestampFormat
+      .format(DateTime.fromMillisecondsSinceEpoch(1000 * message.timestamp));
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 0),
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: localizedTextBaseline(context),
@@ -1413,16 +1397,33 @@ class MessageWithPossibleSender extends StatelessWidget {
                     ),
                   ],
                 ]))),
-          const SizedBox(width: 4),
-          Text(time,
-            style: TextStyle(
-              color: messageListTheme.labelTime,
-              fontSize: 16,
-              height: (18 / 16),
-              fontFeatures: const [FontFeature.enable('c2sc'), FontFeature.enable('smcp')],
-            ).merge(weightVariableTextStyle(context))),
-        ]);
-    }
+          if (showTimestamp) ...[
+            const SizedBox(width: 4),
+            Text(time,
+              style: TextStyle(
+                color: messageListTheme.labelTime,
+                fontSize: 16,
+                height: (18 / 16),
+                fontFeatures: const [FontFeature.enable('c2sc'), FontFeature.enable('smcp')],
+              ).merge(weightVariableTextStyle(context))),
+          ],
+        ]));
+  }
+}
+
+/// A Zulip message, showing the sender's name and avatar if specified.
+// Design referenced from:
+//   - https://github.com/zulip/zulip-mobile/issues/5511
+//   - https://www.figma.com/file/1JTNtYo9memgW7vV6d0ygq/Zulip-Mobile?node-id=538%3A20849&mode=dev
+class MessageWithPossibleSender extends StatelessWidget {
+  const MessageWithPossibleSender({super.key, required this.item});
+
+  final MessageListMessageItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final designVariables = DesignVariables.of(context);
+    final message = item.message;
 
     final localizations = ZulipLocalizations.of(context);
     String? editStateText;
@@ -1451,9 +1452,8 @@ class MessageWithPossibleSender extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(children: [
-          if (senderRow != null)
-            Padding(padding: const EdgeInsets.fromLTRB(16, 2, 16, 0),
-              child: senderRow),
+          if (item.showSender)
+            _SenderRow(message: message, showTimestamp: true),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: localizedTextBaseline(context),
@@ -1481,6 +1481,3 @@ class MessageWithPossibleSender extends StatelessWidget {
         ])));
   }
 }
-
-// TODO(i18n): web seems to ignore locale in formatting time, but we could do better
-final _kMessageTimestampFormat = DateFormat('h:mm aa', 'en_US');
