@@ -35,34 +35,32 @@ class MessageListDateSeparatorItem extends MessageListItem {
   MessageListDateSeparatorItem(this.message);
 }
 
-/// A message to show in the message list.
-class MessageListMessageItem extends MessageListItem {
-  final Message message;
-  ZulipMessageContent content;
+/// A [MessageBase] to show in the message list.
+sealed class MessageListMessageBaseItem extends MessageListItem {
+  MessageBase get message;
+  ZulipMessageContent get content;
   bool showSender;
   bool isLastInBlock;
 
-  MessageListMessageItem(
-    this.message,
-    this.content, {
+  MessageListMessageBaseItem({
     required this.showSender,
     required this.isLastInBlock,
   });
 }
 
-/// Indicates the app is loading more messages at the top.
-// TODO(#80): or loading at the bottom, by adding a [MessageListDirection.newer]
-class MessageListLoadingItem extends MessageListItem {
-  final MessageListDirection direction;
+/// A [Message] to show in the message list.
+class MessageListMessageItem extends MessageListMessageBaseItem {
+  @override
+  final Message message;
+  @override
+  ZulipMessageContent content;
 
-  const MessageListLoadingItem(this.direction);
-}
-
-enum MessageListDirection { older }
-
-/// Indicates we've reached the oldest message in the narrow.
-class MessageListHistoryStartItem extends MessageListItem {
-  const MessageListHistoryStartItem();
+  MessageListMessageItem(
+    this.message,
+    this.content, {
+    required super.showSender,
+    required super.isLastInBlock,
+  });
 }
 
 /// The sequence of messages in a message list, and how to display them.
@@ -72,10 +70,25 @@ mixin _MessageSequence {
   /// A sequence number for invalidating stale fetches.
   int generation = 0;
 
-  /// The messages.
+  /// The known messages in the list.
+  ///
+  /// This may or may not represent all the message history that
+  /// conceptually belongs in this message list.
+  /// That information is expressed in [fetched] and [haveOldest].
+  ///
+  /// See also [middleMessage], an index which divides this list
+  /// into a top slice and a bottom slice.
   ///
   /// See also [contents] and [items].
   final List<Message> messages = [];
+
+  /// An index into [messages] dividing it into a top slice and a bottom slice.
+  ///
+  /// The indices 0 to before [middleMessage] are the top slice of [messages],
+  /// and the indices from [middleMessage] to the end are the bottom slice.
+  ///
+  /// The corresponding item index is [middleItem].
+  int middleMessage = 0;
 
   /// Whether [messages] and [items] represent the results of a fetch.
   ///
@@ -135,7 +148,22 @@ mixin _MessageSequence {
   /// This information is completely derived from [messages] and
   /// the flags [haveOldest], [fetchingOlder] and [fetchOlderCoolingDown].
   /// It exists as an optimization, to memoize that computation.
+  ///
+  /// See also [middleItem], an index which divides this list
+  /// into a top slice and a bottom slice.
   final QueueList<MessageListItem> items = QueueList();
+
+  /// An index into [items] dividing it into a top slice and a bottom slice.
+  ///
+  /// The indices 0 to before [middleItem] are the top slice of [items],
+  /// and the indices from [middleItem] to the end are the bottom slice.
+  ///
+  /// The top and bottom slices of [items] correspond to
+  /// the top and bottom slices of [messages] respectively.
+  /// Either the bottom slices of both [items] and [messages] are empty,
+  /// or the first item in the bottom slice of [items] is a [MessageListMessageItem]
+  /// for the first message in the bottom slice of [messages].
+  int middleItem = 0;
 
   int _findMessageWithId(int messageId) {
     return binarySearchByKey(messages, messageId,
@@ -148,11 +176,6 @@ mixin _MessageSequence {
 
   static int _compareItemToMessageId(MessageListItem item, int messageId) {
     switch (item) {
-      case MessageListHistoryStartItem():        return -1;
-      case MessageListLoadingItem():
-        switch (item.direction) {
-          case MessageListDirection.older:       return -1;
-        }
       case MessageListRecipientHeaderItem(:var message):
       case MessageListDateSeparatorItem(:var message):
         if (message.id == null)                  return 1;  // TODO(#1441): test
@@ -209,6 +232,7 @@ mixin _MessageSequence {
     candidate++;
     assert(contents.length == messages.length);
     while (candidate < messages.length) {
+      if (candidate == middleMessage) middleMessage = target;
       if (test(messages[candidate])) {
         candidate++;
         continue;
@@ -217,6 +241,7 @@ mixin _MessageSequence {
       contents[target] = contents[candidate];
       target++; candidate++;
     }
+    if (candidate == middleMessage) middleMessage = target;
     messages.length = target;
     contents.length = target;
     assert(contents.length == messages.length);
@@ -239,6 +264,13 @@ mixin _MessageSequence {
     }
     if (messagesToRemoveById.isEmpty) return false;
 
+    if (middleMessage == messages.length) {
+      middleMessage -= messagesToRemoveById.length;
+    } else {
+      final middleMessageId = messages[middleMessage].id;
+      middleMessage -= messagesToRemoveById
+        .where((id) => id < middleMessageId).length;
+    }
     assert(contents.length == messages.length);
     messages.removeWhere((message) => messagesToRemoveById.contains(message.id));
     contents.removeWhere((content) => contentToRemove.contains(content));
@@ -253,11 +285,15 @@ mixin _MessageSequence {
     //   On a Pixel 5, a batch of 100 messages takes ~15-20ms in _insertAllMessages.
     //   (Before that, ~2-5ms in jsonDecode and 0ms in fromJson,
     //   so skip worrying about those steps.)
+    final oldLength = messages.length;
     assert(contents.length == messages.length);
     messages.insertAll(index, toInsert);
     contents.insertAll(index, toInsert.map(
       (message) => _parseMessageContent(message)));
     assert(contents.length == messages.length);
+    if (index <= middleMessage) {
+      middleMessage += messages.length - oldLength;
+    }
     _reprocessAll();
   }
 
@@ -265,6 +301,7 @@ mixin _MessageSequence {
   void _reset() {
     generation += 1;
     messages.clear();
+    middleMessage = 0;
     _fetched = false;
     _haveOldest = false;
     _fetchingOlder = false;
@@ -272,6 +309,7 @@ mixin _MessageSequence {
     _fetchOlderCooldownBackoffMachine = null;
     contents.clear();
     items.clear();
+    middleItem = 0;
   }
 
   /// Redo all computations from scratch, based on [messages].
@@ -311,32 +349,9 @@ mixin _MessageSequence {
         canShareSender = (prevMessageItem.message.senderId == message.senderId);
       }
     }
+    if (index == middleMessage) middleItem = items.length;
     items.add(MessageListMessageItem(message, content,
       showSender: !canShareSender, isLastInBlock: true));
-  }
-
-  /// Update [items] to include markers at start and end as appropriate.
-  void _updateEndMarkers() {
-    assert(fetched);
-    assert(!(fetchingOlder && fetchOlderCoolingDown));
-    final effectiveFetchingOlder = fetchingOlder || fetchOlderCoolingDown;
-    assert(!(effectiveFetchingOlder && haveOldest));
-    final startMarker = switch ((effectiveFetchingOlder, haveOldest)) {
-      (true, _) => const MessageListLoadingItem(MessageListDirection.older),
-      (_, true) => const MessageListHistoryStartItem(),
-      (_,    _) => null,
-    };
-    final hasStartMarker = switch (items.firstOrNull) {
-      MessageListLoadingItem()      => true,
-      MessageListHistoryStartItem() => true,
-      _                             => false,
-    };
-    switch ((startMarker != null, hasStartMarker)) {
-      case (true, true): items[0] = startMarker!;
-      case (true, _   ): items.addFirst(startMarker!);
-      case (_,    true): items.removeFirst();
-      case (_,    _   ): break;
-    }
   }
 
   /// Recompute [items] from scratch, based on [messages], [contents], and flags.
@@ -345,50 +360,21 @@ mixin _MessageSequence {
     for (var i = 0; i < messages.length; i++) {
       _processMessage(i);
     }
-    _updateEndMarkers();
+    if (middleMessage == messages.length) middleItem = items.length;
   }
 }
 
 @visibleForTesting
-bool haveSameRecipient(Message prevMessage, Message message) {
-  if (prevMessage is StreamMessage && message is StreamMessage) {
-    if (prevMessage.streamId != message.streamId) return false;
-    if (prevMessage.topic.canonicalize() != message.topic.canonicalize()) return false;
-  } else if (prevMessage is DmMessage && message is DmMessage) {
-    if (!_equalIdSequences(prevMessage.allRecipientIds, message.allRecipientIds)) {
-      return false;
-    }
-  } else {
-    return false;
-  }
-  return true;
-
-  // switch ((prevMessage, message)) {
-  //   case (StreamMessage(), StreamMessage()):
-  //     // TODO(dart-3): this doesn't type-narrow prevMessage and message
-  //   case (DmMessage(), DmMessage()):
-  //     // …
-  //   default:
-  //     return false;
-  // }
+bool haveSameRecipient(MessageBase prevMessage, MessageBase message) {
+  return prevMessage.conversation.isSameAs(message.conversation);
 }
 
 @visibleForTesting
-bool messagesSameDay(Message prevMessage, Message message) {
+bool messagesSameDay(MessageBase prevMessage, MessageBase message) {
   // TODO memoize [DateTime]s... also use memoized for showing date/time in msglist
   final prevTime = DateTime.fromMillisecondsSinceEpoch(prevMessage.timestamp * 1000);
   final time = DateTime.fromMillisecondsSinceEpoch(message.timestamp * 1000);
   if (!_sameDay(prevTime, time)) return false;
-  return true;
-}
-
-// Intended for [Message.allRecipientIds].  Assumes efficient `length`.
-bool _equalIdSequences(Iterable<int> xs, Iterable<int> ys) {
-  if (xs.length != ys.length) return false;
-  final xs_ = xs.iterator; final ys_ = ys.iterator;
-  while (xs_.moveNext() && ys_.moveNext()) {
-    if (xs_.current != ys_.current) return false;
-  }
   return true;
 }
 
@@ -439,19 +425,20 @@ class MessageListView with ChangeNotifier, _MessageSequence {
   /// one way or another.
   ///
   /// See also [_allMessagesVisible].
-  bool _messageVisible(Message message) {
+  bool _messageVisible(MessageBase message) {
     switch (narrow) {
       case CombinedFeedNarrow():
-        return switch (message) {
-          StreamMessage() =>
-            store.isTopicVisible(message.streamId, message.topic),
-          DmMessage() => true,
+        return switch (message.conversation) {
+          StreamConversation(:final streamId, :final topic) =>
+            store.isTopicVisible(streamId, topic),
+          DmConversation() => true,
         };
 
       case ChannelNarrow(:final streamId):
-        assert(message is StreamMessage && message.streamId == streamId);
-        if (message is! StreamMessage) return false;
-        return store.isTopicVisibleInStream(streamId, message.topic);
+        assert(message is MessageBase<StreamConversation>
+               && message.conversation.streamId == streamId);
+        if (message is! MessageBase<StreamConversation>) return false;
+        return store.isTopicVisibleInStream(streamId, message.conversation.topic);
 
       case TopicNarrow():
       case DmNarrow():
@@ -510,19 +497,24 @@ class MessageListView with ChangeNotifier, _MessageSequence {
       anchor: AnchorCode.newest,
       numBefore: kMessageListFetchBatchSize,
       numAfter: 0,
+      allowEmptyTopicName: true,
     );
     if (this.generation > generation) return;
+
     _adjustNarrowForTopicPermalink(result.messages.firstOrNull);
+
     store.reconcileMessages(result.messages);
     store.recentSenders.handleMessages(result.messages); // TODO(#824)
+
+    // We'll make the bottom slice start at the last visible message, if any.
     for (final message in result.messages) {
-      if (_messageVisible(message)) {
-        _addMessage(message);
-      }
+      if (!_messageVisible(message)) continue;
+      middleMessage = messages.length;
+      _addMessage(message);
+      // Now [middleMessage] is the last message (the one just added).
     }
     _fetched = true;
     _haveOldest = result.foundOldest;
-    _updateEndMarkers();
     notifyListeners();
   }
 
@@ -569,7 +561,6 @@ class MessageListView with ChangeNotifier, _MessageSequence {
       || (narrow as TopicNarrow).with_ == null);
     assert(messages.isNotEmpty);
     _fetchingOlder = true;
-    _updateEndMarkers();
     notifyListeners();
     final generation = this.generation;
     bool hasFetchError = false;
@@ -582,6 +573,7 @@ class MessageListView with ChangeNotifier, _MessageSequence {
           includeAnchor: false,
           numBefore: kMessageListFetchBatchSize,
           numAfter: 0,
+          allowEmptyTopicName: true,
         );
       } catch (e) {
         hasFetchError = true;
@@ -614,13 +606,11 @@ class MessageListView with ChangeNotifier, _MessageSequence {
             .wait().then((_) {
               if (this.generation != generation) return;
               _fetchOlderCoolingDown = false;
-              _updateEndMarkers();
               notifyListeners();
             }));
         } else {
           _fetchOlderCooldownBackoffMachine = null;
         }
-        _updateEndMarkers();
         notifyListeners();
       }
     }

@@ -29,6 +29,7 @@ import 'message_list.dart';
 import 'recent_dm_conversations.dart';
 import 'recent_senders.dart';
 import 'channel.dart';
+import 'saved_snippet.dart';
 import 'settings.dart';
 import 'typing_status.dart';
 import 'unreads.dart';
@@ -385,6 +386,12 @@ abstract class PerAccountStoreBase {
   /// This returns null if [reference] fails to parse as a URL.
   Uri? tryResolveUrl(String reference) => _tryResolveUrl(realmUrl, reference);
 
+  /// Always equal to `connection.zulipFeatureLevel`
+  /// and `account.zulipFeatureLevel`.
+  int get zulipFeatureLevel => connection.zulipFeatureLevel!;
+
+  String get zulipVersion => account.zulipVersion;
+
   ////////////////////////////////
   // Data attached to the self-account on the realm.
 
@@ -425,7 +432,7 @@ Uri? tryResolveUrl(Uri baseUrl, String reference) {
 /// This class does not attempt to poll an event queue
 /// to keep the data up to date.  For that behavior, see
 /// [UpdateMachine].
-class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStore, UserStore, ChannelStore, MessageStore {
+class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStore, SavedSnippetStore, UserStore, ChannelStore, MessageStore {
   /// Construct a store for the user's data, starting from the given snapshot.
   ///
   /// The global store must already have been updated with
@@ -480,6 +487,8 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
       emoji: EmojiStoreImpl(
         core: core, allRealmEmoji: initialSnapshot.realmEmoji),
       userSettings: initialSnapshot.userSettings,
+      savedSnippets: SavedSnippetStoreImpl(
+        core: core, savedSnippets: initialSnapshot.savedSnippets ?? []),
       typingNotifier: TypingNotifier(
         core: core,
         typingStoppedWaitPeriod: Duration(
@@ -518,6 +527,7 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
     required this.emailAddressVisibility,
     required EmojiStoreImpl emoji,
     required this.userSettings,
+    required SavedSnippetStoreImpl savedSnippets,
     required this.typingNotifier,
     required UserStoreImpl users,
     required this.typingStatus,
@@ -528,6 +538,7 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
     required this.recentSenders,
   }) : _realmEmptyTopicDisplayName = realmEmptyTopicDisplayName,
        _emoji = emoji,
+       _savedSnippets = savedSnippets,
        _users = users,
        _channels = channels,
        _messages = messages;
@@ -558,11 +569,6 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
   ////////////////////////////////
   // Data attached to the realm or the server.
 
-  /// Always equal to `connection.zulipFeatureLevel`
-  /// and `account.zulipFeatureLevel`.
-  int get zulipFeatureLevel => connection.zulipFeatureLevel!;
-
-  String get zulipVersion => account.zulipVersion;
   final RealmWildcardMentionPolicy realmWildcardMentionPolicy; // TODO(#668): update this realm setting
   final bool realmMandatoryTopics;  // TODO(#668): update this realm setting
   /// For docs, please see [InitialSnapshot.realmWaitingPeriodThreshold].
@@ -577,6 +583,7 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
   /// be empty otherwise.
   // TODO(server-10) simplify this
   String get realmEmptyTopicDisplayName {
+    assert(zulipFeatureLevel >= 334);
     assert(_realmEmptyTopicDisplayName != null); // TODO(log)
     return _realmEmptyTopicDisplayName ?? 'general chat';
   }
@@ -610,6 +617,9 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
   }
 
   @override
+  Iterable<EmojiCandidate> popularEmojiCandidates() => _emoji.popularEmojiCandidates();
+
+  @override
   Iterable<EmojiCandidate> allEmojiCandidates() => _emoji.allEmojiCandidates();
 
   EmojiStoreImpl _emoji;
@@ -618,6 +628,10 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
   // Data attached to the self-account on the realm.
 
   final UserSettings? userSettings; // TODO(server-5)
+
+  @override
+  Map<int, SavedSnippet> get savedSnippets => _savedSnippets.savedSnippets;
+  final SavedSnippetStoreImpl _savedSnippets;
 
   final TypingNotifier typingNotifier;
 
@@ -737,10 +751,35 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
   void unregisterMessageList(MessageListView view) =>
     _messages.unregisterMessageList(view);
   @override
+  Future<void> sendMessage({required MessageDestination destination, required String content}) {
+    assert(!_disposed);
+    return _messages.sendMessage(destination: destination, content: content);
+  }
+  @override
   void reconcileMessages(List<Message> messages) {
     _messages.reconcileMessages(messages);
     // TODO(#649) notify [unreads] of the just-fetched messages
     // TODO(#650) notify [recentDmConversationsView] of the just-fetched messages
+  }
+  @override
+  bool? getEditMessageErrorStatus(int messageId) {
+    assert(!_disposed);
+    return _messages.getEditMessageErrorStatus(messageId);
+  }
+  @override
+  void editMessage({
+    required int messageId,
+    required String originalRawContent,
+    required String newContent,
+  }) {
+    assert(!_disposed);
+    return _messages.editMessage(messageId: messageId,
+      originalRawContent: originalRawContent, newContent: newContent);
+  }
+  @override
+  ({String originalRawContent, String newContent}) takeFailedMessageEdit(int messageId) {
+    assert(!_disposed);
+    return _messages.takeFailedMessageEdit(messageId);
   }
 
   @override
@@ -841,6 +880,11 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
         autocompleteViewManager.handleRealmUserUpdateEvent(event);
         notifyListeners();
 
+      case SavedSnippetsEvent():
+        assert(debugLog('server event: saved_snippets/${event.op}'));
+        _savedSnippets.handleSavedSnippetsEvent(event);
+        notifyListeners();
+
       case ChannelEvent():
         assert(debugLog("server event: stream/${event.op}"));
         _channels.handleChannelEvent(event);
@@ -902,12 +946,6 @@ class PerAccountStore extends PerAccountStoreBase with ChangeNotifier, EmojiStor
       case UnexpectedEvent():
         assert(debugLog("server event: ${jsonEncode(event.toJson())}")); // TODO log better
     }
-  }
-
-  @override
-  Future<void> sendMessage({required MessageDestination destination, required String content}) {
-    assert(!_disposed);
-    return _messages.sendMessage(destination: destination, content: content);
   }
 
   static List<CustomProfileField> _sortCustomProfileFields(List<CustomProfileField> initialCustomProfileFields) {

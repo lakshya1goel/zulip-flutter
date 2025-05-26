@@ -21,12 +21,19 @@ extension UserChecks on Subject<User> {
   Subject<bool> get isSystemBot => has((x) => x.isSystemBot, 'isSystemBot');
 }
 
+extension SavedSnippetChecks on Subject<SavedSnippet> {
+  Subject<int> get id => has((x) => x.id, 'id');
+  Subject<String> get title => has((x) => x.title, 'title');
+  Subject<String> get content => has((x) => x.content, 'content');
+  Subject<int> get dateCreated => has((x) => x.dateCreated, 'dateCreated');
+}
+
 extension ZulipStreamChecks on Subject<ZulipStream> {
 }
 
 extension TopicNameChecks on Subject<TopicName> {
   Subject<String> get apiName => has((x) => x.apiName, 'apiName');
-  Subject<String> get displayName => has((x) => x.displayName, 'displayName');
+  Subject<String?> get displayName => has((x) => x.displayName, 'displayName');
 }
 
 extension StreamConversationChecks on Subject<StreamConversation> {

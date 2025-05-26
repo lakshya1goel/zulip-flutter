@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
 import 'zulip_localizations_ar.dart';
+import 'zulip_localizations_de.dart';
 import 'zulip_localizations_en.dart';
 import 'zulip_localizations_ja.dart';
 import 'zulip_localizations_nb.dart';
@@ -102,6 +103,8 @@ abstract class ZulipLocalizations {
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
     Locale('ar'),
+    Locale('de'),
+    Locale('en', 'GB'),
     Locale('ja'),
     Locale('nb'),
     Locale('pl'),
@@ -326,6 +329,12 @@ abstract class ZulipLocalizations {
   /// **'Unstar message'**
   String get actionSheetOptionUnstarMessage;
 
+  /// Label for the 'Edit message' button in the message action sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit message'**
+  String get actionSheetOptionEditMessage;
+
   /// Option to mark a specific topic as read in the action sheet.
   ///
   /// In en, this message translates to:
@@ -359,7 +368,7 @@ abstract class ZulipLocalizations {
   /// Error message when the source of a message could not be fetched.
   ///
   /// In en, this message translates to:
-  /// **'Could not fetch message source'**
+  /// **'Could not fetch message source.'**
   String get errorCouldNotFetchMessageSource;
 
   /// Error message when copying the text of a message to the user's system clipboard failed.
@@ -413,6 +422,12 @@ abstract class ZulipLocalizations {
   /// In en, this message translates to:
   /// **'Message not sent'**
   String get errorMessageNotSent;
+
+  /// Error message for compose box when a message edit could not be saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Message not saved'**
+  String get errorMessageEditNotSaved;
 
   /// Error message when the app could not connect to the server.
   ///
@@ -526,6 +541,12 @@ abstract class ZulipLocalizations {
   /// **'Failed to unstar message'**
   String get errorUnstarMessageFailedTitle;
 
+  /// Error title when an exception prevented us from opening the compose box for editing a message.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not edit message'**
+  String get errorCouldNotEditMessageTitle;
+
   /// Success message after copy link action completed.
   ///
   /// In en, this message translates to:
@@ -555,6 +576,66 @@ abstract class ZulipLocalizations {
   /// In en, this message translates to:
   /// **'You do not have permission to post in this channel.'**
   String get errorBannerCannotPostInChannelLabel;
+
+  /// Label text for the compose-box banner when you are editing a message.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit message'**
+  String get composeBoxBannerLabelEditMessage;
+
+  /// Label text for the 'Cancel' button in the compose-box banner when you are editing a message.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get composeBoxBannerButtonCancel;
+
+  /// Label text for the 'Save' button in the compose-box banner when you are editing a message.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get composeBoxBannerButtonSave;
+
+  /// Error title when a message edit cannot be saved because there is another edit already in progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot edit message'**
+  String get editAlreadyInProgressTitle;
+
+  /// Error message when a message edit cannot be saved because there is another edit already in progress.
+  ///
+  /// In en, this message translates to:
+  /// **'An edit is already in progress. Please wait for it to complete.'**
+  String get editAlreadyInProgressMessage;
+
+  /// Text on a message in the message list saying that a message edit request is processing. (Use ALL CAPS for cased alphabets: Latin, Greek, Cyrillic, etc.)
+  ///
+  /// In en, this message translates to:
+  /// **'SAVING EDIT…'**
+  String get savingMessageEditLabel;
+
+  /// Text on a message in the message list saying that a message edit request failed. (Use ALL CAPS for cased alphabets: Latin, Greek, Cyrillic, etc.)
+  ///
+  /// In en, this message translates to:
+  /// **'EDIT NOT SAVED'**
+  String get savingMessageEditFailedLabel;
+
+  /// Title for a confirmation dialog for discarding message text that was typed into the compose box.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard the message you’re writing?'**
+  String get discardDraftConfirmationDialogTitle;
+
+  /// Message for a confirmation dialog for discarding message text that was typed into the compose box.
+  ///
+  /// In en, this message translates to:
+  /// **'When you edit a message, the content that was previously in the compose box is discarded.'**
+  String get discardDraftConfirmationDialogMessage;
+
+  /// Label for the 'Discard' button on a confirmation dialog for discarding message text that was typed into the compose box.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get discardDraftConfirmationDialogConfirmButton;
 
   /// Tooltip for compose box icon to attach a file to the message.
   ///
@@ -604,6 +685,12 @@ abstract class ZulipLocalizations {
   /// **'Message {destination}'**
   String composeBoxChannelContentHint(String destination);
 
+  /// Hint text for content input when the compose box is preparing to edit a message.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing…'**
+  String get preparingEditMessageContentInput;
+
   /// Tooltip for send button in compose box.
   ///
   /// In en, this message translates to:
@@ -621,6 +708,12 @@ abstract class ZulipLocalizations {
   /// In en, this message translates to:
   /// **'Topic'**
   String get composeBoxTopicHintText;
+
+  /// Hint text for topic input widget in compose box when topics are optional.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a topic (skip for “{defaultTopicName}”)'**
+  String composeBoxEnterTopicOrSkipHintText(String defaultTopicName);
 
   /// Placeholder in compose box showing the specified file is currently uploading.
   ///
@@ -857,7 +950,7 @@ abstract class ZulipLocalizations {
   /// Error message when an API call returned an invalid response.
   ///
   /// In en, this message translates to:
-  /// **'The server sent an invalid response'**
+  /// **'The server sent an invalid response.'**
   String get errorInvalidResponse;
 
   /// Error message when a network request fails.
@@ -887,7 +980,7 @@ abstract class ZulipLocalizations {
   /// Error message when a video fails to play.
   ///
   /// In en, this message translates to:
-  /// **'Unable to play the video'**
+  /// **'Unable to play the video.'**
   String get errorVideoPlayerFailed;
 
   /// Error message when URL is empty
@@ -1319,6 +1412,7 @@ class _ZulipLocalizationsDelegate
   @override
   bool isSupported(Locale locale) => <String>[
     'ar',
+    'de',
     'en',
     'ja',
     'nb',
@@ -1333,10 +1427,24 @@ class _ZulipLocalizationsDelegate
 }
 
 ZulipLocalizations lookupZulipLocalizations(Locale locale) {
+  // Lookup logic when language+country codes are specified.
+  switch (locale.languageCode) {
+    case 'en':
+      {
+        switch (locale.countryCode) {
+          case 'GB':
+            return ZulipLocalizationsEnGb();
+        }
+        break;
+      }
+  }
+
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
     case 'ar':
       return ZulipLocalizationsAr();
+    case 'de':
+      return ZulipLocalizationsDe();
     case 'en':
       return ZulipLocalizationsEn();
     case 'ja':
