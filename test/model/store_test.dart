@@ -569,7 +569,8 @@ void main() {
 
   group('PerAccountStore.sendMessage', () {
     test('smoke', () async {
-      final store = eg.store();
+      final store = eg.store(initialSnapshot: eg.initialSnapshot(
+        queueId: 'fb67bf8a-c031-47cc-84cf-ed80accacda8'));
       final connection = store.connection as FakeApiConnection;
       final stream = eg.stream();
       connection.prepare(json: SendMessageResult(id: 12345).toJson());
@@ -585,6 +586,8 @@ void main() {
           'topic': 'world',
           'content': 'hello',
           'read_by_sender': 'true',
+          'queue_id': 'fb67bf8a-c031-47cc-84cf-ed80accacda8',
+          'local_id': store.outboxMessages.keys.single.toString(),
         });
     });
   });
@@ -705,7 +708,7 @@ void main() {
 
     final emojiDataUrl = Uri.parse('https://cdn.example/emoji.json');
     final data = {
-      '1f642': ['smile'],
+      '1f642': ['slight_smile'],
       '1f34a': ['orange', 'tangerine', 'mandarin'],
     };
 

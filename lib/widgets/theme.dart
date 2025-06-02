@@ -130,11 +130,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   static final light = DesignVariables._(
     background: const Color(0xffffffff),
     bannerBgIntDanger: const Color(0xfff2e4e4),
+    bannerBgIntInfo: const Color(0xffddecf6),
+    bannerTextIntInfo: const Color(0xff06037c),
     bgBotBar: const Color(0xfff6f6f6),
     bgContextMenu: const Color(0xfff2f2f2),
     bgCounterUnread: const Color(0xff666699).withValues(alpha: 0.15),
     bgMenuButtonActive: Colors.black.withValues(alpha: 0.05),
     bgMenuButtonSelected: Colors.white,
+    bgMessageRegular: const HSLColor.fromAHSL(1, 0, 0, 1).toColor(),
     bgTopBar: const Color(0xfff5f5f5),
     borderBar: Colors.black.withValues(alpha: 0.2),
     borderMenuButtonSelected: Colors.black.withValues(alpha: 0.2),
@@ -144,6 +147,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     btnBgAttMediumIntInfoNormal: const Color(0xff3c6bff).withValues(alpha: 0.12),
     btnLabelAttHigh: const Color(0xffffffff),
     btnLabelAttLowIntDanger: const Color(0xffc0070a),
+    btnLabelAttLowIntInfo: const Color(0xff2347c6),
     btnLabelAttMediumIntDanger: const Color(0xffac0508),
     btnLabelAttMediumIntInfo: const Color(0xff1027a6),
     btnShadowAttMed: const Color(0xff000000).withValues(alpha: 0.20),
@@ -187,11 +191,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   static final dark = DesignVariables._(
     background: const Color(0xff000000),
     bannerBgIntDanger: const Color(0xff461616),
+    bannerBgIntInfo: const Color(0xff00253d),
+    bannerTextIntInfo: const Color(0xffcbdbfd),
     bgBotBar: const Color(0xff222222),
     bgContextMenu: const Color(0xff262626),
     bgCounterUnread: const Color(0xff666699).withValues(alpha: 0.37),
     bgMenuButtonActive: Colors.black.withValues(alpha: 0.2),
     bgMenuButtonSelected: Colors.black.withValues(alpha: 0.25),
+    bgMessageRegular: const HSLColor.fromAHSL(1, 0, 0, 0.11).toColor(),
     bgTopBar: const Color(0xff242424),
     borderBar: const Color(0xffffffff).withValues(alpha: 0.1),
     borderMenuButtonSelected: Colors.white.withValues(alpha: 0.1),
@@ -201,6 +208,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     btnBgAttMediumIntInfoNormal: const Color(0xff97b6fe).withValues(alpha: 0.12),
     btnLabelAttHigh: const Color(0xffffffff).withValues(alpha: 0.85),
     btnLabelAttLowIntDanger: const Color(0xffff8b7c),
+    btnLabelAttLowIntInfo: const Color(0xff84a8fd),
     btnLabelAttMediumIntDanger: const Color(0xffff8b7c),
     btnLabelAttMediumIntInfo: const Color(0xff97b6fe),
     btnShadowAttMed: const Color(0xffffffff).withValues(alpha: 0.21),
@@ -252,11 +260,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   DesignVariables._({
     required this.background,
     required this.bannerBgIntDanger,
+    required this.bannerBgIntInfo,
+    required this.bannerTextIntInfo,
     required this.bgBotBar,
     required this.bgContextMenu,
     required this.bgCounterUnread,
     required this.bgMenuButtonActive,
     required this.bgMenuButtonSelected,
+    required this.bgMessageRegular,
     required this.bgTopBar,
     required this.borderBar,
     required this.borderMenuButtonSelected,
@@ -266,6 +277,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     required this.btnBgAttMediumIntInfoNormal,
     required this.btnLabelAttHigh,
     required this.btnLabelAttLowIntDanger,
+    required this.btnLabelAttLowIntInfo,
     required this.btnLabelAttMediumIntDanger,
     required this.btnLabelAttMediumIntInfo,
     required this.btnShadowAttMed,
@@ -318,11 +330,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
 
   final Color background;
   final Color bannerBgIntDanger;
+  final Color bannerBgIntInfo;
+  final Color bannerTextIntInfo;
   final Color bgBotBar;
   final Color bgContextMenu;
   final Color bgCounterUnread;
   final Color bgMenuButtonActive;
   final Color bgMenuButtonSelected;
+  final Color bgMessageRegular;
   final Color bgTopBar;
   final Color borderBar;
   final Color borderMenuButtonSelected;
@@ -332,6 +347,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   final Color btnBgAttMediumIntInfoNormal;
   final Color btnLabelAttHigh;
   final Color btnLabelAttLowIntDanger;
+  final Color btnLabelAttLowIntInfo;
   final Color btnLabelAttMediumIntDanger;
   final Color btnLabelAttMediumIntInfo;
   final Color btnShadowAttMed;
@@ -379,11 +395,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   DesignVariables copyWith({
     Color? background,
     Color? bannerBgIntDanger,
+    Color? bannerBgIntInfo,
+    Color? bannerTextIntInfo,
     Color? bgBotBar,
     Color? bgContextMenu,
     Color? bgCounterUnread,
     Color? bgMenuButtonActive,
     Color? bgMenuButtonSelected,
+    Color? bgMessageRegular,
     Color? bgTopBar,
     Color? borderBar,
     Color? borderMenuButtonSelected,
@@ -393,6 +412,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     Color? btnBgAttMediumIntInfoNormal,
     Color? btnLabelAttHigh,
     Color? btnLabelAttLowIntDanger,
+    Color? btnLabelAttLowIntInfo,
     Color? btnLabelAttMediumIntDanger,
     Color? btnLabelAttMediumIntInfo,
     Color? btnShadowAttMed,
@@ -435,11 +455,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     return DesignVariables._(
       background: background ?? this.background,
       bannerBgIntDanger: bannerBgIntDanger ?? this.bannerBgIntDanger,
+      bannerBgIntInfo: bannerBgIntInfo ?? this.bannerBgIntInfo,
+      bannerTextIntInfo: bannerTextIntInfo ?? this.bannerTextIntInfo,
       bgBotBar: bgBotBar ?? this.bgBotBar,
       bgContextMenu: bgContextMenu ?? this.bgContextMenu,
       bgCounterUnread: bgCounterUnread ?? this.bgCounterUnread,
       bgMenuButtonActive: bgMenuButtonActive ?? this.bgMenuButtonActive,
       bgMenuButtonSelected: bgMenuButtonSelected ?? this.bgMenuButtonSelected,
+      bgMessageRegular: bgMessageRegular ?? this.bgMessageRegular,
       bgTopBar: bgTopBar ?? this.bgTopBar,
       borderBar: borderBar ?? this.borderBar,
       borderMenuButtonSelected: borderMenuButtonSelected ?? this.borderMenuButtonSelected,
@@ -449,6 +472,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
       btnBgAttMediumIntInfoNormal: btnBgAttMediumIntInfoNormal ?? this.btnBgAttMediumIntInfoNormal,
       btnLabelAttHigh: btnLabelAttHigh ?? this.btnLabelAttHigh,
       btnLabelAttLowIntDanger: btnLabelAttLowIntDanger ?? this.btnLabelAttLowIntDanger,
+      btnLabelAttLowIntInfo: btnLabelAttLowIntInfo ?? this.btnLabelAttLowIntInfo,
       btnLabelAttMediumIntDanger: btnLabelAttMediumIntDanger ?? this.btnLabelAttMediumIntDanger,
       btnLabelAttMediumIntInfo: btnLabelAttMediumIntInfo ?? this.btnLabelAttMediumIntInfo,
       btnShadowAttMed: btnShadowAttMed ?? this.btnShadowAttMed,
@@ -498,11 +522,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     return DesignVariables._(
       background: Color.lerp(background, other.background, t)!,
       bannerBgIntDanger: Color.lerp(bannerBgIntDanger, other.bannerBgIntDanger, t)!,
+      bannerBgIntInfo: Color.lerp(bannerBgIntInfo, other.bannerBgIntInfo, t)!,
+      bannerTextIntInfo: Color.lerp(bannerTextIntInfo, other.bannerTextIntInfo, t)!,
       bgBotBar: Color.lerp(bgBotBar, other.bgBotBar, t)!,
       bgContextMenu: Color.lerp(bgContextMenu, other.bgContextMenu, t)!,
       bgCounterUnread: Color.lerp(bgCounterUnread, other.bgCounterUnread, t)!,
       bgMenuButtonActive: Color.lerp(bgMenuButtonActive, other.bgMenuButtonActive, t)!,
       bgMenuButtonSelected: Color.lerp(bgMenuButtonSelected, other.bgMenuButtonSelected, t)!,
+      bgMessageRegular: Color.lerp(bgMessageRegular, other.bgMessageRegular, t)!,
       bgTopBar: Color.lerp(bgTopBar, other.bgTopBar, t)!,
       borderBar: Color.lerp(borderBar, other.borderBar, t)!,
       borderMenuButtonSelected: Color.lerp(borderMenuButtonSelected, other.borderMenuButtonSelected, t)!,
@@ -512,6 +539,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
       btnBgAttMediumIntInfoNormal: Color.lerp(btnBgAttMediumIntInfoNormal, other.btnBgAttMediumIntInfoNormal, t)!,
       btnLabelAttHigh: Color.lerp(btnLabelAttHigh, other.btnLabelAttHigh, t)!,
       btnLabelAttLowIntDanger: Color.lerp(btnLabelAttLowIntDanger, other.btnLabelAttLowIntDanger, t)!,
+      btnLabelAttLowIntInfo: Color.lerp(btnLabelAttLowIntInfo, other.btnLabelAttLowIntInfo, t)!,
       btnLabelAttMediumIntDanger: Color.lerp(btnLabelAttMediumIntDanger, other.btnLabelAttMediumIntDanger, t)!,
       btnLabelAttMediumIntInfo: Color.lerp(btnLabelAttMediumIntInfo, other.btnLabelAttMediumIntInfo, t)!,
       btnShadowAttMed: Color.lerp(btnShadowAttMed, other.btnShadowAttMed, t)!,
@@ -554,10 +582,19 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   }
 }
 
+// This is taken from:
+//   https://github.com/zulip/zulip/blob/b248e2d93/web/src/stream_data.ts#L40
+const kDefaultChannelColorSwatchBaseColor = 0xffc2c2c2;
+
 /// The theme-appropriate [ChannelColorSwatch] based on [subscription.color].
 ///
+/// If [subscription] is null, [ChannelColorSwatch] will be based on
+/// [kDefaultChannelColorSwatchBaseColor].
+///
 /// For how this value is cached, see [ChannelColorSwatches.forBaseColor].
-ChannelColorSwatch colorSwatchFor(BuildContext context, Subscription subscription) {
+// TODO(#188) pick different colors for unsubscribed channels
+ChannelColorSwatch colorSwatchFor(BuildContext context, Subscription? subscription) {
   return DesignVariables.of(context)
-    .channelColorSwatches.forBaseColor(subscription.color);
+    .channelColorSwatches.forBaseColor(
+      subscription?.color ?? kDefaultChannelColorSwatchBaseColor);
 }
