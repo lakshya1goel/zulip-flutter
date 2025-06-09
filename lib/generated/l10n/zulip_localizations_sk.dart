@@ -77,6 +77,9 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
   String get actionSheetOptionMarkChannelAsRead => 'Mark channel as read';
 
   @override
+  String get actionSheetOptionListOfTopics => 'List of topics';
+
+  @override
   String get actionSheetOptionMuteTopic => 'Stlmiť tému';
 
   @override
@@ -112,6 +115,9 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
       'Označiť ako neprečítané od tejto správy';
 
   @override
+  String get actionSheetOptionHideMutedMessage => 'Hide muted message again';
+
+  @override
   String get actionSheetOptionShare => 'Zdielať';
 
   @override
@@ -122,6 +128,9 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
 
   @override
   String get actionSheetOptionUnstarMessage => 'Odhviezdičkovať správu';
+
+  @override
+  String get actionSheetOptionEditMessage => 'Edit message';
 
   @override
   String get actionSheetOptionMarkTopicAsRead => 'Mark topic as read';
@@ -191,6 +200,9 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
 
   @override
   String get errorMessageNotSent => 'Správa nebola odoslaná';
+
+  @override
+  String get errorMessageEditNotSaved => 'Message not saved';
 
   @override
   String errorLoginCouldNotConnect(String url) {
@@ -263,6 +275,9 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
   String get errorUnstarMessageFailedTitle => 'Failed to unstar message';
 
   @override
+  String get errorCouldNotEditMessageTitle => 'Could not edit message';
+
+  @override
   String get successLinkCopied => 'Link copied';
 
   @override
@@ -280,6 +295,43 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
       'You do not have permission to post in this channel.';
 
   @override
+  String get composeBoxBannerLabelEditMessage => 'Edit message';
+
+  @override
+  String get composeBoxBannerButtonCancel => 'Cancel';
+
+  @override
+  String get composeBoxBannerButtonSave => 'Save';
+
+  @override
+  String get editAlreadyInProgressTitle => 'Cannot edit message';
+
+  @override
+  String get editAlreadyInProgressMessage =>
+      'An edit is already in progress. Please wait for it to complete.';
+
+  @override
+  String get savingMessageEditLabel => 'SAVING EDIT…';
+
+  @override
+  String get savingMessageEditFailedLabel => 'EDIT NOT SAVED';
+
+  @override
+  String get discardDraftConfirmationDialogTitle =>
+      'Discard the message you’re writing?';
+
+  @override
+  String get discardDraftForEditConfirmationDialogMessage =>
+      'When you edit a message, the content that was previously in the compose box is discarded.';
+
+  @override
+  String get discardDraftForMessageNotSentConfirmationDialogMessage =>
+      'When you restore a message not sent, the content that was previously in the compose box is discarded.';
+
+  @override
+  String get discardDraftConfirmationDialogConfirmButton => 'Discard';
+
+  @override
   String get composeBoxAttachFilesTooltip => 'Attach files';
 
   @override
@@ -290,6 +342,27 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
 
   @override
   String get composeBoxGenericContentHint => 'Type a message';
+
+  @override
+  String get newDmSheetBackButtonLabel => 'Back';
+
+  @override
+  String get newDmSheetNextButtonLabel => 'Next';
+
+  @override
+  String get newDmSheetScreenTitle => 'New DM';
+
+  @override
+  String get newDmFabButtonLabel => 'New DM';
+
+  @override
+  String get newDmSheetSearchHintEmpty => 'Add one or more users';
+
+  @override
+  String get newDmSheetSearchHintSomeSelected => 'Add another user…';
+
+  @override
+  String get newDmSheetNoUsersFound => 'No users found';
 
   @override
   String composeBoxDmContentHint(String user) {
@@ -308,6 +381,9 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
   }
 
   @override
+  String get preparingEditMessageContentInput => 'Preparing…';
+
+  @override
   String get composeBoxSendTooltip => 'Send';
 
   @override
@@ -315,6 +391,11 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
 
   @override
   String get composeBoxTopicHintText => 'Topic';
+
+  @override
+  String composeBoxEnterTopicOrSkipHintText(String defaultTopicName) {
+    return 'Enter a topic (skip for “$defaultTopicName”)';
+  }
 
   @override
   String composeBoxUploadingFilename(String filename) {
@@ -582,6 +663,9 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
   String get mainMenuMyProfile => 'Môj profil';
 
   @override
+  String get topicsButtonLabel => 'TOPICS';
+
+  @override
   String get channelFeedButtonTooltip => 'Channel feed';
 
   @override
@@ -657,6 +741,9 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
   String get messageIsMovedLabel => 'PRESUNUTÉ';
 
   @override
+  String get messageNotSentLabel => 'MESSAGE NOT SENT';
+
+  @override
   String pollVoterNames(String voterNames) {
     return '($voterNames)';
   }
@@ -693,8 +780,8 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
   String get errorNotificationOpenTitle => 'Nepodarilo sa otvoriť oznámenie';
 
   @override
-  String get errorNotificationOpenAccountMissing =>
-      'The account associated with this notification no longer exists.';
+  String get errorNotificationOpenAccountNotFound =>
+      'The account associated with this notification could not be found.';
 
   @override
   String get errorReactionAddingFailedTitle => 'Nepodarilo sa pridať reakciu';
@@ -710,6 +797,15 @@ class ZulipLocalizationsSk extends ZulipLocalizations {
 
   @override
   String get noEarlierMessages => 'No earlier messages';
+
+  @override
+  String get mutedSender => 'Muted sender';
+
+  @override
+  String get revealButtonLabel => 'Reveal message for muted sender';
+
+  @override
+  String get mutedUser => 'Muted user';
 
   @override
   String get scrollToBottomTooltip => 'Scroll to bottom';

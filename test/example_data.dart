@@ -12,6 +12,7 @@ import 'package:zulip/api/route/realm.dart';
 import 'package:zulip/api/route/channels.dart';
 import 'package:zulip/model/binding.dart';
 import 'package:zulip/model/database.dart';
+import 'package:zulip/model/message.dart';
 import 'package:zulip/model/narrow.dart';
 import 'package:zulip/model/settings.dart';
 import 'package:zulip/model/store.dart';
@@ -70,6 +71,20 @@ ZulipApiException apiExceptionUnauthorized({String routeName = 'someRoute'}) {
 }
 
 ////////////////////////////////////////////////////////////////
+// Time values.
+//
+
+final timeInPast = DateTime.utc(2025, 4, 1, 8, 30, 0);
+
+/// The UNIX timestamp, in UTC seconds.
+///
+/// This is the commonly used format in the Zulip API for timestamps.
+int utcTimestamp([DateTime? dateTime]) {
+  dateTime ??= timeInPast;
+  return dateTime.toUtc().millisecondsSinceEpoch ~/ 1000;
+}
+
+////////////////////////////////////////////////////////////////
 // Realm-wide (or server-wide) metadata.
 //
 
@@ -77,7 +92,7 @@ final Uri realmUrl = Uri.parse('https://chat.example/');
 Uri get _realmUrl => realmUrl;
 
 const String recentZulipVersion = '9.0';
-const int recentZulipFeatureLevel = 278;
+const int recentZulipFeatureLevel = 382;
 const int futureZulipFeatureLevel = 9999;
 const int ancientZulipFeatureLevel = kMinSupportedZulipFeatureLevel - 1;
 
@@ -114,6 +129,42 @@ GetServerSettingsResult serverSettings({
     realmWebPublicAccessEnabled: realmWebPublicAccessEnabled ?? false,
   );
 }
+
+ServerEmojiData serverEmojiDataPopular = ServerEmojiData(codeToNames: {
+  '1f44d': ['+1', 'thumbs_up', 'like'],
+  '1f389': ['tada'],
+  '1f642': ['slight_smile'],
+  '2764': ['heart', 'love', 'love_you'],
+  '1f6e0': ['working_on_it', 'hammer_and_wrench', 'tools'],
+  '1f419': ['octopus'],
+});
+
+ServerEmojiData serverEmojiDataPopularPlus(ServerEmojiData data) {
+  final a = serverEmojiDataPopular;
+  final b = data;
+  final result = ServerEmojiData(
+    codeToNames: {...a.codeToNames, ...b.codeToNames},
+  );
+  assert(
+    result.codeToNames.length == a.codeToNames.length + b.codeToNames.length,
+    'eg.serverEmojiDataPopularPlus called with data that collides with eg.serverEmojiDataPopular',
+  );
+  return result;
+}
+
+/// Like [serverEmojiDataPopular], but with the legacy '1f642': ['smile']
+/// instead of '1f642': ['slight_smile']; see zulip/zulip@9feba0f16f.
+///
+/// zulip/zulip@9feba0f16f is a Server 11 commit.
+// TODO(server-11) can drop this
+ServerEmojiData serverEmojiDataPopularLegacy = ServerEmojiData(codeToNames: {
+  '1f44d': ['+1', 'thumbs_up', 'like'],
+  '1f389': ['tada'],
+  '1f642': ['smile'],
+  '2764': ['heart', 'love', 'love_you'],
+  '1f6e0': ['working_on_it', 'hammer_and_wrench', 'tools'],
+  '1f419': ['octopus'],
+});
 
 RealmEmojiItem realmEmojiItem({
   required String emojiCode,
@@ -235,6 +286,28 @@ final Account otherAccount = account(
 final User thirdUser = user(fullName: 'Third User');
 
 final User fourthUser  = user(fullName: 'Fourth User');
+
+////////////////////////////////////////////////////////////////
+// Data attached to the self-account on the realm
+//
+
+int _nextSavedSnippetId() => _lastSavedSnippetId++;
+int _lastSavedSnippetId = 1;
+
+SavedSnippet savedSnippet({
+  int? id,
+  String? title,
+  String? content,
+  int? dateCreated,
+}) {
+  _checkPositive(id, 'saved snippet ID');
+  return SavedSnippet(
+    id: id ?? _nextSavedSnippetId(),
+    title: title ?? 'A saved snippet',
+    content: content ?? 'foo bar baz',
+    dateCreated: dateCreated ?? 1234567890, // TODO generate timestamp
+  );
+}
 
 ////////////////////////////////////////////////////////////////
 // Streams and subscriptions.
@@ -553,6 +626,45 @@ GetMessagesResult olderGetMessagesResult({
   );
 }
 
+int _nextLocalMessageId = 1;
+
+StreamOutboxMessage streamOutboxMessage({
+  int? localMessageId,
+  int? selfUserId,
+  int? timestamp,
+  ZulipStream? stream,
+  String? topic,
+  String? content,
+}) {
+  final effectiveStream = stream ?? _stream(streamId: defaultStreamMessageStreamId);
+  return OutboxMessage.fromConversation(
+    StreamConversation(
+      effectiveStream.streamId, TopicName(topic ?? 'topic'),
+      displayRecipient: null,
+    ),
+    localMessageId: localMessageId ?? _nextLocalMessageId++,
+    selfUserId: selfUserId ?? selfUser.userId,
+    timestamp: timestamp ?? utcTimestamp(),
+    contentMarkdown: content ?? 'content') as StreamOutboxMessage;
+}
+
+DmOutboxMessage dmOutboxMessage({
+  int? localMessageId,
+  required User from,
+  required List<User> to,
+  int? timestamp,
+  String? content,
+}) {
+  final allRecipientIds =
+    [from, ...to].map((user) => user.userId).toList()..sort();
+  return OutboxMessage.fromConversation(
+    DmConversation(allRecipientIds: allRecipientIds),
+    localMessageId: localMessageId ?? _nextLocalMessageId++,
+    selfUserId: from.userId,
+    timestamp: timestamp ?? utcTimestamp(),
+    contentMarkdown: content ?? 'content') as DmOutboxMessage;
+}
+
 PollWidgetData pollWidgetData({
   required String question,
   required List<String> options,
@@ -623,8 +735,8 @@ UserTopicEvent userTopicEvent(
   );
 }
 
-MessageEvent messageEvent(Message message) =>
-  MessageEvent(id: 0, message: message, localMessageId: null);
+MessageEvent messageEvent(Message message, {int? localMessageId}) =>
+  MessageEvent(id: 0, message: message, localMessageId: localMessageId?.toString());
 
 DeleteMessageEvent deleteMessageEvent(List<StreamMessage> messages) {
   assert(messages.isNotEmpty);
@@ -909,6 +1021,7 @@ InitialSnapshot initialSnapshot({
   int? serverTypingStartedWaitPeriodMilliseconds,
   Map<String, RealmEmojiItem>? realmEmoji,
   List<RecentDmConversation>? recentPrivateConversations,
+  List<SavedSnippet>? savedSnippets,
   List<Subscription>? subscriptions,
   UnreadMessagesSnapshot? unreadMsgs,
   List<ZulipStream>? streams,
@@ -944,6 +1057,7 @@ InitialSnapshot initialSnapshot({
       serverTypingStartedWaitPeriodMilliseconds ?? 10000,
     realmEmoji: realmEmoji ?? {},
     recentPrivateConversations: recentPrivateConversations ?? [],
+    savedSnippets: savedSnippets ?? [],
     subscriptions: subscriptions ?? [], // TODO add subscriptions to default
     unreadMsgs: unreadMsgs ?? _unreadMsgs(),
     streams: streams ?? [], // TODO add streams to default
@@ -957,7 +1071,7 @@ InitialSnapshot initialSnapshot({
     realmMandatoryTopics: realmMandatoryTopics ?? true,
     realmWaitingPeriodThreshold: realmWaitingPeriodThreshold ?? 0,
     realmAllowMessageEditing: realmAllowMessageEditing ?? true,
-    realmMessageContentEditLimitSeconds: realmMessageContentEditLimitSeconds ?? 600,
+    realmMessageContentEditLimitSeconds: realmMessageContentEditLimitSeconds,
     realmDefaultExternalAccounts: realmDefaultExternalAccounts ?? {},
     maxFileUploadSizeMib: maxFileUploadSizeMib ?? 25,
     serverEmojiDataUrl: serverEmojiDataUrl
