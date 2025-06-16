@@ -49,10 +49,15 @@ class DialogStatus<T> {
 ///
 /// The [DialogStatus.result] field of the return value can be used
 /// for waiting for the dialog to be closed.
+///
+/// Prose in [message] should have final punctuation:
+///   https://github.com/zulip/zulip-flutter/pull/1498#issuecomment-2853578577
+///
+/// The context argument should be a descendant of the app's main [Navigator].
 // This API is inspired by [ScaffoldManager.showSnackBar].  We wrap
 // [showDialog]'s return value, a [Future], inside [DialogStatus]
 // whose documentation can be accessed.  This helps avoid confusion when
-// intepreting the meaning of the [Future].
+// interpreting the meaning of the [Future].
 DialogStatus<void> showErrorDialog({
   required BuildContext context,
   required String title,
@@ -83,6 +88,8 @@ DialogStatus<void> showErrorDialog({
 /// If the dialog was canceled,
 /// either with the cancel button or by tapping outside the dialog's area,
 /// it completes with null.
+///
+/// The context argument should be a descendant of the app's main [Navigator].
 DialogStatus<bool> showSuggestedActionDialog({
   required BuildContext context,
   required String title,

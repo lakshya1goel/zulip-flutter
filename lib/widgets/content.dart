@@ -26,6 +26,7 @@ import 'poll.dart';
 import 'scrolling.dart';
 import 'store.dart';
 import 'text.dart';
+import 'theme.dart';
 
 /// A central place for styles for Zulip content (rendered Zulip Markdown).
 ///
@@ -651,6 +652,7 @@ class MessageImage extends StatelessWidget {
         Navigator.of(context).push(getImageLightboxRoute(
           context: context,
           message: message,
+          messageImageContext: context,
           src: resolvedSrcUrl,
           thumbnailUrl: resolvedThumbnailUrl,
           originalWidth: node.originalWidth,
@@ -659,7 +661,7 @@ class MessageImage extends StatelessWidget {
       child: node.loading
         ? const CupertinoActivityIndicator()
         : resolvedSrcUrl == null ? null : LightboxHero(
-            message: message,
+            messageImageContext: context,
             src: resolvedSrcUrl,
             child: RealmContentNetworkImage(
               resolvedThumbnailUrl ?? resolvedSrcUrl,
@@ -987,7 +989,7 @@ class WebsitePreview extends StatelessWidget {
         // TODO(#488) use different color for non-message contexts
         // TODO(#647) use different color for highlighted messages
         // TODO(#681) use different color for DM messages
-        color: MessageListTheme.of(context).bgMessageRegular,
+        color: DesignVariables.of(context).bgMessageRegular,
         child: ClipRect(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: 80),
@@ -1534,15 +1536,18 @@ void _launchUrl(BuildContext context, String urlString) async {
     return;
   }
 
-  final internalNarrow = parseInternalLink(url, store);
-  if (internalNarrow != null) {
-    unawaited(Navigator.push(context,
-      MessageListPage.buildRoute(context: context,
-        narrow: internalNarrow)));
-    return;
-  }
+  final internalLink = parseInternalLink(url, store);
+  assert(internalLink == null || internalLink.realmUrl == store.realmUrl);
+  switch (internalLink) {
+    case NarrowLink():
+      unawaited(Navigator.push(context,
+        MessageListPage.buildRoute(context: context,
+          narrow: internalLink.narrow,
+          initAnchorMessageId: internalLink.nearMessageId)));
 
-  await PlatformActions.launchUrl(context, url);
+    case null:
+      await PlatformActions.launchUrl(context, url);
+  }
 }
 
 /// Like [Image.network], but includes [authHeader] if [src] is on-realm.

@@ -111,7 +111,7 @@ class _HomePageState extends State<HomePage> {
             narrow: const CombinedFeedNarrow()))),
       button(_HomePageTab.channels,       ZulipIcons.hash_italic),
       // TODO(#1094): Users
-      button(_HomePageTab.directMessages, ZulipIcons.user),
+      button(_HomePageTab.directMessages, ZulipIcons.two_person),
       _NavigationBarButton(         icon: ZulipIcons.menu,
         selected: false,
         onPressed: () => _showMainMenu(context, tabNotifier: _tab)),
@@ -147,6 +147,40 @@ class _HomePageState extends State<HomePage> {
                   ])))))));
   }
 }
+
+/// A "no content here" message, for the Inbox, Subscriptions, and DMs pages.
+///
+/// This should go near the root of the "page body"'s widget subtree.
+/// In particular, it handles the horizontal device insets.
+/// (The vertical insets are handled externally, by the app bar and bottom nav.)
+class PageBodyEmptyContentPlaceholder extends StatelessWidget {
+  const PageBodyEmptyContentPlaceholder({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final designVariables = DesignVariables.of(context);
+
+    return SafeArea(
+      minimum: EdgeInsets.symmetric(horizontal: 24),
+      child: Padding(
+        padding: EdgeInsets.only(top: 48, bottom: 16),
+        child: Align(
+          alignment: Alignment.topCenter,
+          // TODO leading and trailing elements, like in Figma (given as SVGs):
+          //   https://www.figma.com/design/1JTNtYo9memgW7vV6d0ygq/Zulip-Mobile?node-id=5957-167736&m=dev
+          child: Text(
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: designVariables.labelSearchPrompt,
+              fontSize: 17,
+              height: 23 / 17,
+            ).merge(weightVariableTextStyle(context, wght: 500)),
+            message))));
+  }
+}
+
 
 const kTryAnotherAccountWaitPeriod = Duration(seconds: 5);
 
@@ -515,7 +549,7 @@ class _DirectMessagesButton extends _NavigationBarMenuButton {
   const _DirectMessagesButton({required super.tabNotifier});
 
   @override
-  IconData get icon => ZulipIcons.user;
+  IconData get icon => ZulipIcons.two_person;
 
   @override
   String label(ZulipLocalizations zulipLocalizations) {

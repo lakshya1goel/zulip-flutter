@@ -68,6 +68,12 @@ Map<String, dynamic> _$CustomProfileFieldExternalAccountDataToJson(
   'url_pattern': instance.urlPattern,
 };
 
+MutedUserItem _$MutedUserItemFromJson(Map<String, dynamic> json) =>
+    MutedUserItem(id: (json['id'] as num).toInt());
+
+Map<String, dynamic> _$MutedUserItemToJson(MutedUserItem instance) =>
+    <String, dynamic>{'id': instance.id};
+
 RealmEmojiItem _$RealmEmojiItemFromJson(Map<String, dynamic> json) =>
     RealmEmojiItem(
       emojiCode: json['id'] as String,
@@ -107,14 +113,14 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
   timezone: json['timezone'] as String,
   avatarUrl: json['avatar_url'] as String?,
   avatarVersion: (json['avatar_version'] as num).toInt(),
-  profileData: (User._readProfileData(json, 'profile_data')
-          as Map<String, dynamic>?)
-      ?.map(
-        (k, e) => MapEntry(
-          int.parse(k),
-          ProfileFieldUserData.fromJson(e as Map<String, dynamic>),
-        ),
-      ),
+  profileData:
+      (User._readProfileData(json, 'profile_data') as Map<String, dynamic>?)
+          ?.map(
+            (k, e) => MapEntry(
+              int.parse(k),
+              ProfileFieldUserData.fromJson(e as Map<String, dynamic>),
+            ),
+          ),
   isSystemBot: User._readIsSystemBot(json, 'is_system_bot') as bool,
 );
 
@@ -161,6 +167,21 @@ Map<String, dynamic> _$ProfileFieldUserDataToJson(
   'value': instance.value,
   'rendered_value': instance.renderedValue,
 };
+
+SavedSnippet _$SavedSnippetFromJson(Map<String, dynamic> json) => SavedSnippet(
+  id: (json['id'] as num).toInt(),
+  title: json['title'] as String,
+  content: json['content'] as String,
+  dateCreated: (json['date_created'] as num).toInt(),
+);
+
+Map<String, dynamic> _$SavedSnippetToJson(SavedSnippet instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'title': instance.title,
+      'content': instance.content,
+      'date_created': instance.dateCreated,
+    };
 
 ZulipStream _$ZulipStreamFromJson(Map<String, dynamic> json) => ZulipStream(
   streamId: (json['stream_id'] as num).toInt(),

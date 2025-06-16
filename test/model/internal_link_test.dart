@@ -160,7 +160,14 @@ void main() {
         test(urlString, () async {
           final store = await setupStore(realmUrl: realmUrl, streams: streams, users: users);
           final url = store.tryResolveUrl(urlString)!;
-          check(parseInternalLink(url, store)).equals(expected);
+          final result = parseInternalLink(url, store);
+          if (expected == null) {
+            check(result).isNull();
+          } else {
+            check(result).isA<NarrowLink>()
+              ..realmUrl.equals(realmUrl)
+              ..narrow.equals(expected);
+          }
         });
       }
     }
@@ -258,6 +265,9 @@ void main() {
           final url = store.tryResolveUrl(urlString)!;
           final result = parseInternalLink(url, store);
           check(result != null).equals(expected);
+          if (result != null) {
+            check(result).realmUrl.equals(realmUrl);
+          }
         });
       }
     }
@@ -369,6 +379,8 @@ void main() {
         testExpectedNarrows(testCases, streams: streams);
       }
     });
+
+    // TODO(#1570): test parsing /near/ operator
 
     group('unexpected link shapes are rejected', () {
       final testCases = [
@@ -563,4 +575,12 @@ void main() {
       });
     });
   });
+}
+
+extension InternalLinkChecks on Subject<InternalLink> {
+  Subject<Uri> get realmUrl => has((x) => x.realmUrl, 'realmUrl');
+}
+
+extension NarrowLinkChecks on Subject<NarrowLink> {
+  Subject<Narrow> get narrow => has((x) => x.narrow, 'narrow');
 }

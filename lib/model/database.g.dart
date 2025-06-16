@@ -22,17 +22,47 @@ class $GlobalSettingsTable extends GlobalSettings
   ).withConverter<ThemeSetting?>($GlobalSettingsTable.$converterthemeSettingn);
   @override
   late final GeneratedColumnWithTypeConverter<BrowserPreference?, String>
-  browserPreference = GeneratedColumn<String>(
-    'browser_preference',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  ).withConverter<BrowserPreference?>(
-    $GlobalSettingsTable.$converterbrowserPreferencen,
-  );
+  browserPreference =
+      GeneratedColumn<String>(
+        'browser_preference',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<BrowserPreference?>(
+        $GlobalSettingsTable.$converterbrowserPreferencen,
+      );
   @override
-  List<GeneratedColumn> get $columns => [themeSetting, browserPreference];
+  late final GeneratedColumnWithTypeConverter<VisitFirstUnreadSetting?, String>
+  visitFirstUnread =
+      GeneratedColumn<String>(
+        'visit_first_unread',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<VisitFirstUnreadSetting?>(
+        $GlobalSettingsTable.$convertervisitFirstUnreadn,
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<MarkReadOnScrollSetting?, String>
+  markReadOnScroll =
+      GeneratedColumn<String>(
+        'mark_read_on_scroll',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<MarkReadOnScrollSetting?>(
+        $GlobalSettingsTable.$convertermarkReadOnScrolln,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    themeSetting,
+    browserPreference,
+    visitFirstUnread,
+    markReadOnScroll,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -55,6 +85,20 @@ class $GlobalSettingsTable extends GlobalSettings
             attachedDatabase.typeMapping.read(
               DriftSqlType.string,
               data['${effectivePrefix}browser_preference'],
+            ),
+          ),
+      visitFirstUnread: $GlobalSettingsTable.$convertervisitFirstUnreadn
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.string,
+              data['${effectivePrefix}visit_first_unread'],
+            ),
+          ),
+      markReadOnScroll: $GlobalSettingsTable.$convertermarkReadOnScrolln
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.string,
+              data['${effectivePrefix}mark_read_on_scroll'],
             ),
           ),
     );
@@ -81,13 +125,36 @@ class $GlobalSettingsTable extends GlobalSettings
   $converterbrowserPreferencen = JsonTypeConverter2.asNullable(
     $converterbrowserPreference,
   );
+  static JsonTypeConverter2<VisitFirstUnreadSetting, String, String>
+  $convertervisitFirstUnread = const EnumNameConverter<VisitFirstUnreadSetting>(
+    VisitFirstUnreadSetting.values,
+  );
+  static JsonTypeConverter2<VisitFirstUnreadSetting?, String?, String?>
+  $convertervisitFirstUnreadn = JsonTypeConverter2.asNullable(
+    $convertervisitFirstUnread,
+  );
+  static JsonTypeConverter2<MarkReadOnScrollSetting, String, String>
+  $convertermarkReadOnScroll = const EnumNameConverter<MarkReadOnScrollSetting>(
+    MarkReadOnScrollSetting.values,
+  );
+  static JsonTypeConverter2<MarkReadOnScrollSetting?, String?, String?>
+  $convertermarkReadOnScrolln = JsonTypeConverter2.asNullable(
+    $convertermarkReadOnScroll,
+  );
 }
 
 class GlobalSettingsData extends DataClass
     implements Insertable<GlobalSettingsData> {
   final ThemeSetting? themeSetting;
   final BrowserPreference? browserPreference;
-  const GlobalSettingsData({this.themeSetting, this.browserPreference});
+  final VisitFirstUnreadSetting? visitFirstUnread;
+  final MarkReadOnScrollSetting? markReadOnScroll;
+  const GlobalSettingsData({
+    this.themeSetting,
+    this.browserPreference,
+    this.visitFirstUnread,
+    this.markReadOnScroll,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -103,19 +170,37 @@ class GlobalSettingsData extends DataClass
         ),
       );
     }
+    if (!nullToAbsent || visitFirstUnread != null) {
+      map['visit_first_unread'] = Variable<String>(
+        $GlobalSettingsTable.$convertervisitFirstUnreadn.toSql(
+          visitFirstUnread,
+        ),
+      );
+    }
+    if (!nullToAbsent || markReadOnScroll != null) {
+      map['mark_read_on_scroll'] = Variable<String>(
+        $GlobalSettingsTable.$convertermarkReadOnScrolln.toSql(
+          markReadOnScroll,
+        ),
+      );
+    }
     return map;
   }
 
   GlobalSettingsCompanion toCompanion(bool nullToAbsent) {
     return GlobalSettingsCompanion(
-      themeSetting:
-          themeSetting == null && nullToAbsent
-              ? const Value.absent()
-              : Value(themeSetting),
-      browserPreference:
-          browserPreference == null && nullToAbsent
-              ? const Value.absent()
-              : Value(browserPreference),
+      themeSetting: themeSetting == null && nullToAbsent
+          ? const Value.absent()
+          : Value(themeSetting),
+      browserPreference: browserPreference == null && nullToAbsent
+          ? const Value.absent()
+          : Value(browserPreference),
+      visitFirstUnread: visitFirstUnread == null && nullToAbsent
+          ? const Value.absent()
+          : Value(visitFirstUnread),
+      markReadOnScroll: markReadOnScroll == null && nullToAbsent
+          ? const Value.absent()
+          : Value(markReadOnScroll),
     );
   }
 
@@ -130,6 +215,10 @@ class GlobalSettingsData extends DataClass
       ),
       browserPreference: $GlobalSettingsTable.$converterbrowserPreferencen
           .fromJson(serializer.fromJson<String?>(json['browserPreference'])),
+      visitFirstUnread: $GlobalSettingsTable.$convertervisitFirstUnreadn
+          .fromJson(serializer.fromJson<String?>(json['visitFirstUnread'])),
+      markReadOnScroll: $GlobalSettingsTable.$convertermarkReadOnScrolln
+          .fromJson(serializer.fromJson<String?>(json['markReadOnScroll'])),
     );
   }
   @override
@@ -144,29 +233,50 @@ class GlobalSettingsData extends DataClass
           browserPreference,
         ),
       ),
+      'visitFirstUnread': serializer.toJson<String?>(
+        $GlobalSettingsTable.$convertervisitFirstUnreadn.toJson(
+          visitFirstUnread,
+        ),
+      ),
+      'markReadOnScroll': serializer.toJson<String?>(
+        $GlobalSettingsTable.$convertermarkReadOnScrolln.toJson(
+          markReadOnScroll,
+        ),
+      ),
     };
   }
 
   GlobalSettingsData copyWith({
     Value<ThemeSetting?> themeSetting = const Value.absent(),
     Value<BrowserPreference?> browserPreference = const Value.absent(),
+    Value<VisitFirstUnreadSetting?> visitFirstUnread = const Value.absent(),
+    Value<MarkReadOnScrollSetting?> markReadOnScroll = const Value.absent(),
   }) => GlobalSettingsData(
     themeSetting: themeSetting.present ? themeSetting.value : this.themeSetting,
-    browserPreference:
-        browserPreference.present
-            ? browserPreference.value
-            : this.browserPreference,
+    browserPreference: browserPreference.present
+        ? browserPreference.value
+        : this.browserPreference,
+    visitFirstUnread: visitFirstUnread.present
+        ? visitFirstUnread.value
+        : this.visitFirstUnread,
+    markReadOnScroll: markReadOnScroll.present
+        ? markReadOnScroll.value
+        : this.markReadOnScroll,
   );
   GlobalSettingsData copyWithCompanion(GlobalSettingsCompanion data) {
     return GlobalSettingsData(
-      themeSetting:
-          data.themeSetting.present
-              ? data.themeSetting.value
-              : this.themeSetting,
-      browserPreference:
-          data.browserPreference.present
-              ? data.browserPreference.value
-              : this.browserPreference,
+      themeSetting: data.themeSetting.present
+          ? data.themeSetting.value
+          : this.themeSetting,
+      browserPreference: data.browserPreference.present
+          ? data.browserPreference.value
+          : this.browserPreference,
+      visitFirstUnread: data.visitFirstUnread.present
+          ? data.visitFirstUnread.value
+          : this.visitFirstUnread,
+      markReadOnScroll: data.markReadOnScroll.present
+          ? data.markReadOnScroll.value
+          : this.markReadOnScroll,
     );
   }
 
@@ -174,43 +284,62 @@ class GlobalSettingsData extends DataClass
   String toString() {
     return (StringBuffer('GlobalSettingsData(')
           ..write('themeSetting: $themeSetting, ')
-          ..write('browserPreference: $browserPreference')
+          ..write('browserPreference: $browserPreference, ')
+          ..write('visitFirstUnread: $visitFirstUnread, ')
+          ..write('markReadOnScroll: $markReadOnScroll')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(themeSetting, browserPreference);
+  int get hashCode => Object.hash(
+    themeSetting,
+    browserPreference,
+    visitFirstUnread,
+    markReadOnScroll,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is GlobalSettingsData &&
           other.themeSetting == this.themeSetting &&
-          other.browserPreference == this.browserPreference);
+          other.browserPreference == this.browserPreference &&
+          other.visitFirstUnread == this.visitFirstUnread &&
+          other.markReadOnScroll == this.markReadOnScroll);
 }
 
 class GlobalSettingsCompanion extends UpdateCompanion<GlobalSettingsData> {
   final Value<ThemeSetting?> themeSetting;
   final Value<BrowserPreference?> browserPreference;
+  final Value<VisitFirstUnreadSetting?> visitFirstUnread;
+  final Value<MarkReadOnScrollSetting?> markReadOnScroll;
   final Value<int> rowid;
   const GlobalSettingsCompanion({
     this.themeSetting = const Value.absent(),
     this.browserPreference = const Value.absent(),
+    this.visitFirstUnread = const Value.absent(),
+    this.markReadOnScroll = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GlobalSettingsCompanion.insert({
     this.themeSetting = const Value.absent(),
     this.browserPreference = const Value.absent(),
+    this.visitFirstUnread = const Value.absent(),
+    this.markReadOnScroll = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   static Insertable<GlobalSettingsData> custom({
     Expression<String>? themeSetting,
     Expression<String>? browserPreference,
+    Expression<String>? visitFirstUnread,
+    Expression<String>? markReadOnScroll,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (themeSetting != null) 'theme_setting': themeSetting,
       if (browserPreference != null) 'browser_preference': browserPreference,
+      if (visitFirstUnread != null) 'visit_first_unread': visitFirstUnread,
+      if (markReadOnScroll != null) 'mark_read_on_scroll': markReadOnScroll,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -218,11 +347,15 @@ class GlobalSettingsCompanion extends UpdateCompanion<GlobalSettingsData> {
   GlobalSettingsCompanion copyWith({
     Value<ThemeSetting?>? themeSetting,
     Value<BrowserPreference?>? browserPreference,
+    Value<VisitFirstUnreadSetting?>? visitFirstUnread,
+    Value<MarkReadOnScrollSetting?>? markReadOnScroll,
     Value<int>? rowid,
   }) {
     return GlobalSettingsCompanion(
       themeSetting: themeSetting ?? this.themeSetting,
       browserPreference: browserPreference ?? this.browserPreference,
+      visitFirstUnread: visitFirstUnread ?? this.visitFirstUnread,
+      markReadOnScroll: markReadOnScroll ?? this.markReadOnScroll,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -242,6 +375,20 @@ class GlobalSettingsCompanion extends UpdateCompanion<GlobalSettingsData> {
         ),
       );
     }
+    if (visitFirstUnread.present) {
+      map['visit_first_unread'] = Variable<String>(
+        $GlobalSettingsTable.$convertervisitFirstUnreadn.toSql(
+          visitFirstUnread.value,
+        ),
+      );
+    }
+    if (markReadOnScroll.present) {
+      map['mark_read_on_scroll'] = Variable<String>(
+        $GlobalSettingsTable.$convertermarkReadOnScrolln.toSql(
+          markReadOnScroll.value,
+        ),
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -253,6 +400,8 @@ class GlobalSettingsCompanion extends UpdateCompanion<GlobalSettingsData> {
     return (StringBuffer('GlobalSettingsCompanion(')
           ..write('themeSetting: $themeSetting, ')
           ..write('browserPreference: $browserPreference, ')
+          ..write('visitFirstUnread: $visitFirstUnread, ')
+          ..write('markReadOnScroll: $markReadOnScroll, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -325,16 +474,14 @@ class $BoolGlobalSettingsTable extends BoolGlobalSettings
   BoolGlobalSettingRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return BoolGlobalSettingRow(
-      name:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.string,
-            data['${effectivePrefix}name'],
-          )!,
-      value:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.bool,
-            data['${effectivePrefix}value'],
-          )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}value'],
+      )!,
     );
   }
 
@@ -691,46 +838,40 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
   Account map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return Account(
-      id:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.int,
-            data['${effectivePrefix}id'],
-          )!,
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
       realmUrl: $AccountsTable.$converterrealmUrl.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
           data['${effectivePrefix}realm_url'],
         )!,
       ),
-      userId:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.int,
-            data['${effectivePrefix}user_id'],
-          )!,
-      email:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.string,
-            data['${effectivePrefix}email'],
-          )!,
-      apiKey:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.string,
-            data['${effectivePrefix}api_key'],
-          )!,
-      zulipVersion:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.string,
-            data['${effectivePrefix}zulip_version'],
-          )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}user_id'],
+      )!,
+      email: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}email'],
+      )!,
+      apiKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}api_key'],
+      )!,
+      zulipVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}zulip_version'],
+      )!,
       zulipMergeBase: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}zulip_merge_base'],
       ),
-      zulipFeatureLevel:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.int,
-            data['${effectivePrefix}zulip_feature_level'],
-          )!,
+      zulipFeatureLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}zulip_feature_level'],
+      )!,
       ackedPushToken: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}acked_push_token'],
@@ -813,15 +954,13 @@ class Account extends DataClass implements Insertable<Account> {
       email: Value(email),
       apiKey: Value(apiKey),
       zulipVersion: Value(zulipVersion),
-      zulipMergeBase:
-          zulipMergeBase == null && nullToAbsent
-              ? const Value.absent()
-              : Value(zulipMergeBase),
+      zulipMergeBase: zulipMergeBase == null && nullToAbsent
+          ? const Value.absent()
+          : Value(zulipMergeBase),
       zulipFeatureLevel: Value(zulipFeatureLevel),
-      ackedPushToken:
-          ackedPushToken == null && nullToAbsent
-              ? const Value.absent()
-              : Value(ackedPushToken),
+      ackedPushToken: ackedPushToken == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ackedPushToken),
     );
   }
 
@@ -875,11 +1014,13 @@ class Account extends DataClass implements Insertable<Account> {
     email: email ?? this.email,
     apiKey: apiKey ?? this.apiKey,
     zulipVersion: zulipVersion ?? this.zulipVersion,
-    zulipMergeBase:
-        zulipMergeBase.present ? zulipMergeBase.value : this.zulipMergeBase,
+    zulipMergeBase: zulipMergeBase.present
+        ? zulipMergeBase.value
+        : this.zulipMergeBase,
     zulipFeatureLevel: zulipFeatureLevel ?? this.zulipFeatureLevel,
-    ackedPushToken:
-        ackedPushToken.present ? ackedPushToken.value : this.ackedPushToken,
+    ackedPushToken: ackedPushToken.present
+        ? ackedPushToken.value
+        : this.ackedPushToken,
   );
   Account copyWithCompanion(AccountsCompanion data) {
     return Account(
@@ -888,22 +1029,18 @@ class Account extends DataClass implements Insertable<Account> {
       userId: data.userId.present ? data.userId.value : this.userId,
       email: data.email.present ? data.email.value : this.email,
       apiKey: data.apiKey.present ? data.apiKey.value : this.apiKey,
-      zulipVersion:
-          data.zulipVersion.present
-              ? data.zulipVersion.value
-              : this.zulipVersion,
-      zulipMergeBase:
-          data.zulipMergeBase.present
-              ? data.zulipMergeBase.value
-              : this.zulipMergeBase,
-      zulipFeatureLevel:
-          data.zulipFeatureLevel.present
-              ? data.zulipFeatureLevel.value
-              : this.zulipFeatureLevel,
-      ackedPushToken:
-          data.ackedPushToken.present
-              ? data.ackedPushToken.value
-              : this.ackedPushToken,
+      zulipVersion: data.zulipVersion.present
+          ? data.zulipVersion.value
+          : this.zulipVersion,
+      zulipMergeBase: data.zulipMergeBase.present
+          ? data.zulipMergeBase.value
+          : this.zulipMergeBase,
+      zulipFeatureLevel: data.zulipFeatureLevel.present
+          ? data.zulipFeatureLevel.value
+          : this.zulipFeatureLevel,
+      ackedPushToken: data.ackedPushToken.present
+          ? data.ackedPushToken.value
+          : this.ackedPushToken,
     );
   }
 
@@ -1109,12 +1246,16 @@ typedef $$GlobalSettingsTableCreateCompanionBuilder =
     GlobalSettingsCompanion Function({
       Value<ThemeSetting?> themeSetting,
       Value<BrowserPreference?> browserPreference,
+      Value<VisitFirstUnreadSetting?> visitFirstUnread,
+      Value<MarkReadOnScrollSetting?> markReadOnScroll,
       Value<int> rowid,
     });
 typedef $$GlobalSettingsTableUpdateCompanionBuilder =
     GlobalSettingsCompanion Function({
       Value<ThemeSetting?> themeSetting,
       Value<BrowserPreference?> browserPreference,
+      Value<VisitFirstUnreadSetting?> visitFirstUnread,
+      Value<MarkReadOnScrollSetting?> markReadOnScroll,
       Value<int> rowid,
     });
 
@@ -1138,6 +1279,26 @@ class $$GlobalSettingsTableFilterComposer
     column: $table.browserPreference,
     builder: (column) => ColumnWithTypeConverterFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<
+    VisitFirstUnreadSetting?,
+    VisitFirstUnreadSetting,
+    String
+  >
+  get visitFirstUnread => $composableBuilder(
+    column: $table.visitFirstUnread,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    MarkReadOnScrollSetting?,
+    MarkReadOnScrollSetting,
+    String
+  >
+  get markReadOnScroll => $composableBuilder(
+    column: $table.markReadOnScroll,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
 }
 
 class $$GlobalSettingsTableOrderingComposer
@@ -1156,6 +1317,16 @@ class $$GlobalSettingsTableOrderingComposer
 
   ColumnOrderings<String> get browserPreference => $composableBuilder(
     column: $table.browserPreference,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get visitFirstUnread => $composableBuilder(
+    column: $table.visitFirstUnread,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get markReadOnScroll => $composableBuilder(
+    column: $table.markReadOnScroll,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -1178,6 +1349,18 @@ class $$GlobalSettingsTableAnnotationComposer
   GeneratedColumnWithTypeConverter<BrowserPreference?, String>
   get browserPreference => $composableBuilder(
     column: $table.browserPreference,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<VisitFirstUnreadSetting?, String>
+  get visitFirstUnread => $composableBuilder(
+    column: $table.visitFirstUnread,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<MarkReadOnScrollSetting?, String>
+  get markReadOnScroll => $composableBuilder(
+    column: $table.markReadOnScroll,
     builder: (column) => column,
   );
 }
@@ -1211,25 +1394,27 @@ class $$GlobalSettingsTableTableManager
         TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer:
-              () => $$GlobalSettingsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer:
-              () =>
-                  $$GlobalSettingsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer:
-              () => $$GlobalSettingsTableAnnotationComposer(
-                $db: db,
-                $table: table,
-              ),
+          createFilteringComposer: () =>
+              $$GlobalSettingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$GlobalSettingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$GlobalSettingsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
                 Value<ThemeSetting?> themeSetting = const Value.absent(),
                 Value<BrowserPreference?> browserPreference =
                     const Value.absent(),
+                Value<VisitFirstUnreadSetting?> visitFirstUnread =
+                    const Value.absent(),
+                Value<MarkReadOnScrollSetting?> markReadOnScroll =
+                    const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GlobalSettingsCompanion(
                 themeSetting: themeSetting,
                 browserPreference: browserPreference,
+                visitFirstUnread: visitFirstUnread,
+                markReadOnScroll: markReadOnScroll,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1237,22 +1422,21 @@ class $$GlobalSettingsTableTableManager
                 Value<ThemeSetting?> themeSetting = const Value.absent(),
                 Value<BrowserPreference?> browserPreference =
                     const Value.absent(),
+                Value<VisitFirstUnreadSetting?> visitFirstUnread =
+                    const Value.absent(),
+                Value<MarkReadOnScrollSetting?> markReadOnScroll =
+                    const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GlobalSettingsCompanion.insert(
                 themeSetting: themeSetting,
                 browserPreference: browserPreference,
+                visitFirstUnread: visitFirstUnread,
+                markReadOnScroll: markReadOnScroll,
                 rowid: rowid,
               ),
-          withReferenceMapper:
-              (p0) =>
-                  p0
-                      .map(
-                        (e) => (
-                          e.readTable(table),
-                          BaseReferences(db, table, e),
-                        ),
-                      )
-                      .toList(),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
           prefetchHooksCallback: null,
         ),
       );
@@ -1373,18 +1557,12 @@ class $$BoolGlobalSettingsTableTableManager
         TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer:
-              () => $$BoolGlobalSettingsTableFilterComposer(
-                $db: db,
-                $table: table,
-              ),
-          createOrderingComposer:
-              () => $$BoolGlobalSettingsTableOrderingComposer(
-                $db: db,
-                $table: table,
-              ),
-          createComputedFieldComposer:
-              () => $$BoolGlobalSettingsTableAnnotationComposer(
+          createFilteringComposer: () =>
+              $$BoolGlobalSettingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BoolGlobalSettingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BoolGlobalSettingsTableAnnotationComposer(
                 $db: db,
                 $table: table,
               ),
@@ -1408,16 +1586,9 @@ class $$BoolGlobalSettingsTableTableManager
                 value: value,
                 rowid: rowid,
               ),
-          withReferenceMapper:
-              (p0) =>
-                  p0
-                      .map(
-                        (e) => (
-                          e.readTable(table),
-                          BaseReferences(db, table, e),
-                        ),
-                      )
-                      .toList(),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
           prefetchHooksCallback: null,
         ),
       );
@@ -1645,12 +1816,12 @@ class $$AccountsTableTableManager
         TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer:
-              () => $$AccountsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer:
-              () => $$AccountsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer:
-              () => $$AccountsTableAnnotationComposer($db: db, $table: table),
+          createFilteringComposer: () =>
+              $$AccountsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AccountsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AccountsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -1695,16 +1866,9 @@ class $$AccountsTableTableManager
                 zulipFeatureLevel: zulipFeatureLevel,
                 ackedPushToken: ackedPushToken,
               ),
-          withReferenceMapper:
-              (p0) =>
-                  p0
-                      .map(
-                        (e) => (
-                          e.readTable(table),
-                          BaseReferences(db, table, e),
-                        ),
-                      )
-                      .toList(),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
           prefetchHooksCallback: null,
         ),
       );

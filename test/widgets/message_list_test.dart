@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:checks/checks.dart';
 import 'package:collection/collection.dart';
@@ -11,21 +12,27 @@ import 'package:zulip/api/model/events.dart';
 import 'package:zulip/api/model/initial_snapshot.dart';
 import 'package:zulip/api/model/model.dart';
 import 'package:zulip/api/model/narrow.dart';
+import 'package:zulip/api/route/channels.dart';
 import 'package:zulip/api/route/messages.dart';
 import 'package:zulip/model/actions.dart';
 import 'package:zulip/model/localizations.dart';
+import 'package:zulip/model/message.dart';
 import 'package:zulip/model/message_list.dart';
 import 'package:zulip/model/narrow.dart';
 import 'package:zulip/model/store.dart';
 import 'package:zulip/model/typing_status.dart';
+import 'package:zulip/widgets/app_bar.dart';
 import 'package:zulip/widgets/autocomplete.dart';
 import 'package:zulip/widgets/color.dart';
+import 'package:zulip/widgets/compose_box.dart';
 import 'package:zulip/widgets/content.dart';
 import 'package:zulip/widgets/icons.dart';
 import 'package:zulip/widgets/message_list.dart';
 import 'package:zulip/widgets/page.dart';
 import 'package:zulip/widgets/store.dart';
 import 'package:zulip/widgets/channel_colors.dart';
+import 'package:zulip/widgets/theme.dart';
+import 'package:zulip/widgets/topic_list.dart';
 
 import '../api/fake_api.dart';
 import '../example_data.dart' as eg;
@@ -36,6 +43,7 @@ import '../flutter_checks.dart';
 import '../stdlib_checks.dart';
 import '../test_images.dart';
 import '../test_navigation.dart';
+import 'compose_box_checks.dart';
 import 'content_checks.dart';
 import 'dialog_checks.dart';
 import 'message_list_checks.dart';
@@ -44,6 +52,7 @@ import 'test_app.dart';
 
 void main() {
   TestZulipBinding.ensureInitialized();
+  MessageListPage.debugEnableMarkReadOnScroll = false;
 
   late PerAccountStore store;
   late FakeApiConnection connection;
@@ -53,6 +62,7 @@ void main() {
     bool foundOldest = true,
     int? messageCount,
     List<Message>? messages,
+    GetMessagesResult? fetchResult,
     List<ZulipStream>? streams,
     List<User>? users,
     List<Subscription>? subscriptions,
@@ -77,12 +87,17 @@ void main() {
     // prepare message list data
     await store.addUser(eg.selfUser);
     await store.addUsers(users ?? []);
-    assert((messageCount == null) != (messages == null));
-    messages ??= List.generate(messageCount!, (index) {
-      return eg.streamMessage(sender: eg.selfUser);
-    });
-    connection.prepare(json:
-      eg.newestGetMessagesResult(foundOldest: foundOldest, messages: messages).toJson());
+    if (fetchResult != null) {
+      assert(foundOldest && messageCount == null && messages == null);
+    } else {
+      assert((messageCount == null) != (messages == null));
+      messages ??= List.generate(messageCount!, (index) {
+        return eg.streamMessage(sender: eg.selfUser);
+      });
+      fetchResult = eg.newestGetMessagesResult(
+        foundOldest: foundOldest, messages: messages);
+    }
+    connection.prepare(json: fetchResult.toJson());
 
     await tester.pumpWidget(TestZulipApp(accountId: selfAccount.id,
       skipAssertAccountExists: skipAssertAccountExists,
@@ -204,7 +219,37 @@ void main() {
         messageCount: 1);
       checkAppBarChannelTopic(
         channel.name, eg.defaultRealmEmptyTopicDisplayName);
-    }, skip: true); // null topic names soon to be enabled
+    });
+
+    void testChannelIconInChannelRow(IconData expectedIcon, {
+      required bool isWebPublic,
+      required bool inviteOnly,
+    }) {
+      final description = 'channel icon in channel row; '
+        'web-public: $isWebPublic, invite-only: $inviteOnly';
+      testWidgets(description, (tester) async {
+        final color = 0xff95a5fd;
+
+        final channel = eg.stream(isWebPublic: isWebPublic, inviteOnly: inviteOnly);
+        final subscription = eg.subscription(channel, color: color);
+
+        await setupMessageListPage(tester,
+          narrow: ChannelNarrow(channel.streamId),
+          streams: [channel],
+          subscriptions: [subscription],
+          messages: [eg.streamMessage(stream: channel)]);
+
+        final iconElement = tester.element(find.descendant(
+          of: find.byType(ZulipAppBar),
+          matching: find.byIcon(expectedIcon)));
+
+        check(Theme.brightnessOf(iconElement)).equals(Brightness.light);
+        check(iconElement.widget as Icon).color.equals(Color(0xff5972fc));
+      });
+    }
+    testChannelIconInChannelRow(ZulipIcons.globe, isWebPublic: true, inviteOnly: false);
+    testChannelIconInChannelRow(ZulipIcons.lock, isWebPublic: false, inviteOnly: true);
+    testChannelIconInChannelRow(ZulipIcons.hash_sign, isWebPublic: false, inviteOnly: false);
 
     testWidgets('has channel-feed action for topic narrows', (tester) async {
       final pushedRoutes = <Route<void>>[];
@@ -226,6 +271,25 @@ void main() {
           .equals(ChannelNarrow(channel.streamId));
     });
 
+    testWidgets('has topic-list action for topic narrows', (tester) async {
+      final channel = eg.stream(name: 'channel foo');
+      await setupMessageListPage(tester,
+        narrow: eg.topicNarrow(channel.streamId, 'topic foo'),
+        streams: [channel],
+        messages: [eg.streamMessage(stream: channel, topic: 'topic foo')]);
+
+      connection.prepare(json: GetStreamTopicsResult(topics: [
+        eg.getStreamTopicsEntry(name: 'topic foo'),
+      ]).toJson());
+      await tester.tap(find.text('TOPICS'));
+      await tester.pump(); // tap the button
+      await tester.pump(Duration.zero); // wait for request
+      check(find.descendant(
+        of: find.byType(TopicListPage),
+        matching: find.text('channel foo')),
+      ).findsOne();
+    });
+
     testWidgets('show topic visibility policy for topic narrows', (tester) async {
       final channel = eg.stream();
       const topic = 'topic';
@@ -240,6 +304,25 @@ void main() {
       check(find.descendant(
         of: find.byType(MessageListAppBarTitle),
         matching: find.byIcon(ZulipIcons.mute))).findsOne();
+    });
+
+    testWidgets('has topic-list action for channel narrows', (tester) async {
+      final channel = eg.stream(name: 'channel foo');
+      await setupMessageListPage(tester,
+        narrow: ChannelNarrow(channel.streamId),
+        streams: [channel],
+        messages: [eg.streamMessage(stream: channel, topic: 'topic foo')]);
+
+      connection.prepare(json: GetStreamTopicsResult(topics: [
+        eg.getStreamTopicsEntry(name: 'topic foo'),
+      ]).toJson());
+      await tester.tap(find.text('TOPICS'));
+      await tester.pump(); // tap the button
+      await tester.pump(Duration.zero); // wait for request
+      check(find.descendant(
+        of: find.byType(TopicListPage),
+        matching: find.text('channel foo')),
+      ).findsOne();
     });
   });
 
@@ -280,20 +363,25 @@ void main() {
       return widget.color;
     }
 
-    check(backgroundColor()).isSameColorAs(MessageListTheme.light.bgMessageRegular);
+    check(backgroundColor()).isSameColorAs(DesignVariables.light.bgMessageRegular);
 
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
     await tester.pump();
 
     await tester.pump(kThemeAnimationDuration * 0.4);
-    final expectedLerped = MessageListTheme.light.lerp(MessageListTheme.dark, 0.4);
+    final expectedLerped = DesignVariables.light.lerp(DesignVariables.dark, 0.4);
     check(backgroundColor()).isSameColorAs(expectedLerped.bgMessageRegular);
 
     await tester.pump(kThemeAnimationDuration * 0.6);
-    check(backgroundColor()).isSameColorAs(MessageListTheme.dark.bgMessageRegular);
+    check(backgroundColor()).isSameColorAs(DesignVariables.dark.bgMessageRegular);
   });
 
   group('fetch initial batch of messages', () {
+    // TODO(#1571): test effect of visitFirstUnread setting
+    // TODO(#1569): test effect of initAnchorMessageId
+    // TODO(#1569): test that after jumpToEnd, then new store causing new fetch,
+    //   new post-jump anchor prevails over initAnchorMessageId
+
     group('topic permalink', () {
       final someStream = eg.stream();
       const someTopic = 'some topic';
@@ -328,9 +416,10 @@ void main() {
           ..url.path.equals('/api/v1/messages')
           ..url.queryParameters.deepEquals({
             'narrow': jsonEncode(narrow.apiEncode()),
-            'anchor': AnchorCode.newest.toJson(),
+            'anchor': AnchorCode.firstUnread.toJson(),
             'num_before': kMessageListFetchBatchSize.toString(),
-            'num_after': '0',
+            'num_after': kMessageListFetchBatchSize.toString(),
+            'allow_empty_topic_name': 'true',
           });
       });
 
@@ -360,15 +449,20 @@ void main() {
           ..url.path.equals('/api/v1/messages')
           ..url.queryParameters.deepEquals({
             'narrow': jsonEncode(narrow.apiEncode()),
-            'anchor': AnchorCode.newest.toJson(),
+            'anchor': AnchorCode.firstUnread.toJson(),
             'num_before': kMessageListFetchBatchSize.toString(),
-            'num_after': '0',
+            'num_after': kMessageListFetchBatchSize.toString(),
+            'allow_empty_topic_name': 'true',
           });
       });
     });
   });
 
   group('fetch older messages on scroll', () {
+    // TODO(#1569): test fetch newer messages on scroll, too;
+    //   in particular test it happens even when near top as well as bottom
+    //   (because may have haveOldest true but haveNewest false)
+
     int? itemCount(WidgetTester tester) =>
       findScrollView(tester).semanticChildCount;
 
@@ -458,23 +552,61 @@ void main() {
     // [MessageListScrollView], in scrolling_test.dart .
 
     testWidgets('sticks to end upon new message', (tester) async {
-      await setupMessageListPage(tester,
-        messages: List.generate(10, (_) => eg.streamMessage(content: '<p>a</p>')));
+      await setupMessageListPage(tester, messages: List.generate(10,
+        (i) => eg.streamMessage(content: '<p>message $i</p>')));
       final controller = findMessageListScrollController(tester)!;
+      final findMiddleMessage = find.text('message 5');
 
-      // Starts at end, and with room to scroll up.
-      check(controller.position)
-        ..extentAfter.equals(0)
-        ..extentBefore.isGreaterThan(0);
-      final oldPosition = controller.position.pixels;
+      // Started out scrolled to the bottom.
+      check(controller.position).extentAfter.equals(0);
+      final scrollPixels = controller.position.pixels;
 
-      // On new message, position remains at end…
+      // Note the position of some mid-screen message.
+      final messageRect = tester.getRect(findMiddleMessage);
+      check(messageRect)..top.isGreaterThan(0)..bottom.isLessThan(600);
+
+      // When a new message arrives, the existing message moves up…
       await store.addMessage(eg.streamMessage(content: '<p>a</p><p>b</p>'));
       await tester.pump();
+      check(tester.getRect(findMiddleMessage))
+        ..top.isLessThan(messageRect.top)
+        ..height.isCloseTo(messageRect.height, Tolerance().distance);
+      // … because the position remains at the end…
       check(controller.position)
         ..extentAfter.equals(0)
         // … even though that means a bigger number now.
-        ..pixels.isGreaterThan(oldPosition);
+        ..pixels.isGreaterThan(scrollPixels);
+    });
+
+    testWidgets('preserves visible messages upon new message, when not at end', (tester) async {
+      await setupMessageListPage(tester, messages: List.generate(10,
+        (i) => eg.streamMessage(content: '<p>message $i</p>')));
+      final controller = findMessageListScrollController(tester)!;
+      final findMiddleMessage = find.text('message 5');
+
+      // Started at bottom.  Scroll up a bit.
+      check(controller.position).extentAfter.equals(0);
+      controller.position.jumpTo(controller.position.pixels - 100);
+      await tester.pump();
+      check(controller.position).extentAfter.equals(100);
+      final scrollPixels = controller.position.pixels;
+
+      // Note the position of some mid-screen message.
+      final messageRect = tester.getRect(findMiddleMessage);
+      check(messageRect)..top.isGreaterThan(0)..bottom.isLessThan(600);
+
+      // When a new message arrives, the existing message doesn't shift…
+      await store.addMessage(eg.streamMessage(content: '<p>a</p><p>b</p>'));
+      await tester.pump();
+      check(tester.getRect(findMiddleMessage)).equals(messageRect);
+      // … because the scroll position value remained the same…
+      check(controller.position)
+        ..pixels.equals(scrollPixels)
+        // … even though there's now more content off screen below.
+        // (This last check relies on the fact that the old extentAfter is small,
+        // less than cacheExtent, so that the new content is only barely offscreen,
+        // it gets built, and the new extentAfter reflects it.)
+        ..extentAfter.isGreaterThan(100);
     });
   });
 
@@ -542,6 +674,8 @@ void main() {
       check(isButtonVisible(tester)).equals(false);
     });
 
+    // TODO(#1569): test choice of jumpToEnd vs. scrollToEnd
+
     testWidgets('scrolls at reasonable, constant speed', (tester) async {
       const maxSpeed = 8000.0;
       const distance = 40000.0;
@@ -576,6 +710,63 @@ void main() {
       // … and scrolled far enough to effectively test the max speed.
       check(log.sum).isGreaterThan(2 * maxSpeed);
     });
+  });
+
+  // TODO test markers at start of list (`_buildStartCap`)
+
+  group('markers at end of list', () {
+    final findLoadingIndicator = find.byType(CircularProgressIndicator);
+
+    testWidgets('spacer when have newest', (tester) async {
+      final messages = List.generate(10,
+        (i) => eg.streamMessage(content: '<p>message $i</p>'));
+      await setupMessageListPage(tester, narrow: CombinedFeedNarrow(),
+        fetchResult: eg.nearGetMessagesResult(anchor: messages.last.id,
+          foundOldest: true, foundNewest: true, messages: messages));
+      check(findMessageListScrollController(tester)!.position)
+        .extentAfter.equals(0);
+
+      // There's no loading indicator.
+      check(findLoadingIndicator).findsNothing();
+      // The last message is spaced above the bottom of the viewport.
+      check(tester.getRect(find.text('message 9')))
+        .bottom..isGreaterThan(400)..isLessThan(570);
+    });
+
+    testWidgets('loading indicator displaces spacer etc.', (tester) async {
+      await setupMessageListPage(tester, narrow: CombinedFeedNarrow(),
+        skipPumpAndSettle: true,
+        // TODO(#1569) fix realism of this data: foundNewest false should mean
+        //   some messages found after anchor (and then we might need to scroll
+        //   to cause fetching newer messages).
+        fetchResult: eg.nearGetMessagesResult(anchor: 1000,
+          foundOldest: true, foundNewest: false,
+          messages: List.generate(10,
+            (i) => eg.streamMessage(id: 100 + i, content: '<p>message $i</p>'))));
+      await tester.pump();
+
+      // The message list will immediately start fetching newer messages.
+      connection.prepare(json: eg.newerGetMessagesResult(
+        anchor: 109, foundNewest: true, messages: List.generate(100,
+          (i) => eg.streamMessage(id: 110 + i))).toJson());
+      await tester.pump(Duration(milliseconds: 10));
+      await tester.pump();
+
+      // There's a loading indicator.
+      check(findLoadingIndicator).findsOne();
+      // It's at the bottom.
+      check(findMessageListScrollController(tester)!.position)
+        .extentAfter.equals(0);
+      final loadingIndicatorRect = tester.getRect(findLoadingIndicator);
+      check(loadingIndicatorRect).bottom.isGreaterThan(575);
+      // The last message is shortly above it; no spacer or anything else.
+      check(tester.getRect(find.text('message 9')))
+        .bottom.isGreaterThan(loadingIndicatorRect.top - 36); // TODO(#1569) where's this space going?
+      await tester.pumpAndSettle();
+    });
+
+    // TODO(#1569) test no typing status or mark-read button when not haveNewest
+    //   (even without loading indicator)
   });
 
   group('TypingStatusWidget', () {
@@ -901,7 +1092,8 @@ void main() {
 
       connection.prepare(json: SendMessageResult(id: 1).toJson());
       await tester.tap(find.byIcon(ZulipIcons.send));
-      await tester.pump();
+      await tester.pump(Duration.zero);
+      final localMessageId = store.outboxMessages.keys.single;
       check(connection.lastRequest).isA<http.Request>()
         ..method.equals('POST')
         ..url.path.equals('/api/v1/messages')
@@ -910,8 +1102,12 @@ void main() {
           'to': '${otherChannel.streamId}',
           'topic': 'new topic',
           'content': 'Some text',
-          'read_by_sender': 'true'});
-      await tester.pumpAndSettle();
+          'read_by_sender': 'true',
+          'queue_id': store.queueId,
+          'local_id': localMessageId.toString()});
+      // Remove the outbox message and its timers created when sending message.
+      await store.handleEvent(
+        eg.messageEvent(message, localMessageId: localMessageId));
     });
 
     testWidgets('Move to narrow with existing messages', (tester) async {
@@ -1015,7 +1211,7 @@ void main() {
         await tester.pump();
         check(findInMessageList('stream name')).single;
         check(findInMessageList(eg.defaultRealmEmptyTopicDisplayName)).single;
-      }, skip: true); // null topic names soon to be enabled
+      });
 
       testWidgets('show general chat for empty topics without channel name', (tester) async {
         await setupMessageListPage(tester,
@@ -1024,7 +1220,7 @@ void main() {
         await tester.pump();
         check(findInMessageList('stream name')).isEmpty();
         check(findInMessageList(eg.defaultRealmEmptyTopicDisplayName)).single;
-      }, skip: true); // null topic names soon to be enabled
+      });
 
       testWidgets('show topic visibility icon when followed', (tester) async {
         await setupMessageListPage(tester,
@@ -1236,7 +1432,7 @@ void main() {
         final textSpan = tester.renderObject<RenderParagraph>(find.text(
           zulipLocalizations.messageListGroupYouAndOthers(
             zulipLocalizations.unknownUserName))).text;
-        final icon = tester.widget<Icon>(find.byIcon(ZulipIcons.user));
+        final icon = tester.widget<Icon>(find.byIcon(ZulipIcons.two_person));
         check(textSpan).style.isNotNull().color.isNotNull().isSameColorAs(icon.color!);
       });
     });
@@ -1324,6 +1520,30 @@ void main() {
   });
 
   group('MessageWithPossibleSender', () {
+    testWidgets('known user', (tester) async {
+      final user = eg.user(fullName: 'Old Name');
+      await setupMessageListPage(tester,
+        messages: [eg.streamMessage(sender: user)],
+        users: [user]);
+
+      check(find.widgetWithText(MessageWithPossibleSender, 'Old Name')).findsOne();
+
+      // If the user's name changes, the sender row should update.
+      await store.handleEvent(RealmUserUpdateEvent(id: 1,
+        userId: user.userId, fullName: 'New Name'));
+      await tester.pump();
+      check(find.widgetWithText(MessageWithPossibleSender, 'New Name')).findsOne();
+    });
+
+    testWidgets('unknown user', (tester) async {
+      final user = eg.user(fullName: 'Some User');
+      await setupMessageListPage(tester, messages: [eg.streamMessage(sender: user)]);
+      check(store.getUser(user.userId)).isNull();
+
+      // The sender row should fall back to the name in the message.
+      check(find.widgetWithText(MessageWithPossibleSender, 'Some User')).findsOne();
+    });
+
     testWidgets('Updates avatar on RealmUserUpdateEvent', (tester) async {
       addTearDown(testBinding.reset);
 
@@ -1408,6 +1628,173 @@ void main() {
     });
   });
 
+  group('OutboxMessageWithPossibleSender', () {
+    final stream = eg.stream();
+    final topic = 'topic';
+    final topicNarrow = eg.topicNarrow(stream.streamId, topic);
+    const content = 'outbox message content';
+
+    final contentInputFinder = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.controller is ComposeContentController);
+
+    Finder outboxMessageFinder = find.widgetWithText(
+      OutboxMessageWithPossibleSender, content, skipOffstage: true);
+
+    Finder messageNotSentFinder = find.descendant(
+      of: find.byType(OutboxMessageWithPossibleSender),
+      matching: find.text('MESSAGE NOT SENT')).hitTestable();
+    Finder loadingIndicatorFinder = find.descendant(
+      of: find.byType(OutboxMessageWithPossibleSender),
+      matching: find.byType(LinearProgressIndicator)).hitTestable();
+
+    Future<void> sendMessageAndSucceed(WidgetTester tester, {
+      Duration delay = Duration.zero,
+    }) async {
+      connection.prepare(json: SendMessageResult(id: 1).toJson(), delay: delay);
+      await tester.enterText(contentInputFinder, content);
+      await tester.tap(find.byIcon(ZulipIcons.send));
+      await tester.pump(Duration.zero);
+    }
+
+    Future<void> sendMessageAndFail(WidgetTester tester, {
+      Duration delay = Duration.zero,
+    }) async {
+      connection.prepare(httpException: SocketException('error'), delay: delay);
+      await tester.enterText(contentInputFinder, content);
+      await tester.tap(find.byIcon(ZulipIcons.send));
+      await tester.pump(Duration.zero);
+    }
+
+    Future<void> dismissErrorDialog(WidgetTester tester) async {
+      await tester.tap(find.byWidget(
+        checkErrorDialog(tester, expectedTitle: 'Message not sent')));
+      await tester.pump(Duration(milliseconds: 250));
+    }
+
+    Future<void> checkTapRestoreMessage(WidgetTester tester) async {
+      final state = tester.state<ComposeBoxState>(find.byType(ComposeBox));
+      check(store.outboxMessages).values.single;
+      check(outboxMessageFinder).findsOne();
+      check(messageNotSentFinder).findsOne();
+      check(state).controller.content.text.isNotNull().isEmpty();
+
+      // Tap the message.  This should put its content back into the compose box
+      // and remove it.
+      await tester.tap(outboxMessageFinder);
+      await tester.pump();
+      check(store.outboxMessages).isEmpty();
+      check(outboxMessageFinder).findsNothing();
+      check(state).controller.content.text.equals(content);
+    }
+
+    Future<void> checkTapNotRestoreMessage(WidgetTester tester) async {
+      check(store.outboxMessages).values.single;
+      check(outboxMessageFinder).findsOne();
+
+      // the message should ignore the pointer event
+      await tester.tap(outboxMessageFinder, warnIfMissed: false);
+      await tester.pump();
+      check(store.outboxMessages).values.single;
+      check(outboxMessageFinder).findsOne();
+    }
+
+    // State transitions are tested more thoroughly in
+    // test/model/message_test.dart .
+
+    testWidgets('hidden -> waiting', (tester) async {
+      await setupMessageListPage(tester,
+        narrow: topicNarrow, streams: [stream],
+        messages: []);
+
+      await sendMessageAndSucceed(tester);
+      check(outboxMessageFinder).findsNothing();
+
+      await tester.pump(kLocalEchoDebounceDuration);
+      check(outboxMessageFinder).findsOne();
+      check(loadingIndicatorFinder).findsOne();
+      // The outbox message is still in waiting state;
+      // tapping does not restore it.
+      await checkTapNotRestoreMessage(tester);
+    });
+
+    testWidgets('hidden -> failed, tap to restore message', (tester) async {
+      await setupMessageListPage(tester,
+        narrow: topicNarrow, streams: [stream],
+        messages: []);
+      // Send a message and fail.  Dismiss the error dialog as it pops up.
+      await sendMessageAndFail(tester);
+      await dismissErrorDialog(tester);
+      check(messageNotSentFinder).findsOne();
+
+      await checkTapRestoreMessage(tester);
+    });
+
+    testWidgets('hidden -> failed, tapping does nothing if compose box is not offered', (tester) async {
+      Route<dynamic>? lastPoppedRoute;
+      final navObserver = TestNavigatorObserver()
+        ..onPopped = (route, prevRoute) => lastPoppedRoute = route;
+
+      final messages = [eg.streamMessage(
+        stream: stream, topic: topic, content: content)];
+      await setupMessageListPage(tester,
+        narrow: const CombinedFeedNarrow(),
+        streams: [stream], subscriptions: [eg.subscription(stream)],
+        navObservers: [navObserver],
+        messages: messages);
+
+      // Navigate to a message list page in a topic narrow,
+      // which has a compose box.
+      connection.prepare(json:
+        eg.newestGetMessagesResult(foundOldest: true, messages: messages).toJson());
+      await tester.tap(find.widgetWithText(RecipientHeader, topic));
+      await tester.pump(); // handle tap
+      await tester.pump(); // wait for navigation
+      check(contentInputFinder).findsOne();
+
+      await sendMessageAndFail(tester);
+      await dismissErrorDialog(tester);
+      // Navigate back to the message list page without a compose box,
+      // where the failed to send message should be visible.
+
+      await tester.pageBack();
+      check(lastPoppedRoute)
+        .isA<MaterialAccountWidgetRoute>().page
+        .isA<MessageListPage>()
+        .initNarrow.equals(TopicNarrow(stream.streamId, eg.t(topic)));
+      await tester.pump(); // handle tap
+      await tester.pump((lastPoppedRoute as TransitionRoute).reverseTransitionDuration);
+      check(contentInputFinder).findsNothing();
+      check(messageNotSentFinder).findsOne();
+
+      // Tap the failed to send message.
+      // This should not remove it from the message list.
+      await checkTapNotRestoreMessage(tester);
+    });
+
+    testWidgets('waiting -> waitPeriodExpired, tap to restore message', (tester) async {
+      await setupMessageListPage(tester,
+        narrow: topicNarrow, streams: [stream],
+        messages: []);
+      await sendMessageAndFail(tester,
+        delay: kSendMessageOfferRestoreWaitPeriod + const Duration(seconds: 1));
+      await tester.pump(kSendMessageOfferRestoreWaitPeriod);
+      final localMessageId = store.outboxMessages.keys.single;
+      check(messageNotSentFinder).findsOne();
+
+      await checkTapRestoreMessage(tester);
+
+      // While `localMessageId` is no longer in store, there should be no error
+      // when a message event refers to it.
+      await store.handleEvent(eg.messageEvent(
+        eg.streamMessage(stream: stream, topic: 'topic'),
+        localMessageId: localMessageId));
+
+      // The [sendMessage] request fails; there is no outbox message affected.
+      await tester.pump(Duration(seconds: 1));
+      check(messageNotSentFinder).findsNothing();
+    });
+  });
+
   group('Starred messages', () {
     testWidgets('unstarred message', (tester) async {
       final message = eg.streamMessage(flags: []);
@@ -1422,7 +1809,7 @@ void main() {
     });
   });
 
-  group('edit state label', () {
+  group('EDITED/MOVED label and edit-message error status', () {
     void checkMarkersCount({required int edited, required int moved}) {
       check(find.text('EDITED').evaluate()).length.equals(edited);
       check(find.text('MOVED').evaluate()).length.equals(moved);
@@ -1452,6 +1839,81 @@ void main() {
       await store.handleEvent(eg.updateMessageEditEvent(message2, renderedContent: 'edited'));
       await tester.pump();
       checkMarkersCount(edited: 2, moved: 0);
+    });
+
+    void checkEditInProgress(WidgetTester tester) {
+      check(find.text('SAVING EDIT…')).findsOne();
+      check(find.byType(LinearProgressIndicator)).findsOne();
+      final opacityWidget = tester.widget<Opacity>(find.ancestor(
+        of: find.byType(MessageContent),
+        matching: find.byType(Opacity)));
+      check(opacityWidget.opacity).equals(0.6);
+      checkMarkersCount(edited: 0, moved: 0);
+    }
+
+    void checkEditNotInProgress(WidgetTester tester) {
+      check(find.text('SAVING EDIT…')).findsNothing();
+      check(find.byType(LinearProgressIndicator)).findsNothing();
+      check(find.ancestor(
+        of: find.byType(MessageContent),
+        matching: find.byType(Opacity))).findsNothing();
+    }
+
+    void checkEditFailed(WidgetTester tester) {
+      check(find.text('EDIT NOT SAVED')).findsOne();
+      final opacityWidget = tester.widget<Opacity>(find.ancestor(
+        of: find.byType(MessageContent),
+        matching: find.byType(Opacity)));
+      check(opacityWidget.opacity).equals(0.6);
+      checkMarkersCount(edited: 0, moved: 0);
+    }
+
+    testWidgets('successful edit', (tester) async {
+      final message = eg.streamMessage();
+      await setupMessageListPage(tester,
+        narrow: TopicNarrow.ofMessage(message),
+        messages: [message]);
+
+      connection.prepare(json: UpdateMessageResult().toJson());
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'foo',
+        newContent: 'bar');
+      await tester.pump(Duration.zero);
+      checkEditInProgress(tester);
+      await store.handleEvent(eg.updateMessageEditEvent(message));
+      await tester.pump();
+      checkEditNotInProgress(tester);
+    });
+
+    testWidgets('failed edit', (tester) async {
+      final message = eg.streamMessage();
+      await setupMessageListPage(tester,
+        narrow: TopicNarrow.ofMessage(message),
+        messages: [message]);
+
+      connection.prepare(apiException: eg.apiBadRequest(), delay: Duration(seconds: 1));
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'foo',
+        newContent: 'bar');
+      await tester.pump(Duration.zero);
+      checkEditInProgress(tester);
+      await tester.pump(Duration(seconds: 1));
+      checkEditFailed(tester);
+
+      connection.prepare(json: GetMessageResult(
+        message: eg.streamMessage(content: 'foo')).toJson(), delay: Duration(milliseconds: 500));
+      await tester.tap(find.byType(MessageContent));
+      // We don't clear out the failed attempt, with the intended new content…
+      checkEditFailed(tester);
+      await tester.pump(Duration(milliseconds: 500));
+      // …until we have the current content, from a successful message fetch,
+      // for prevContentSha256.
+      checkEditNotInProgress(tester);
+
+      final state = MessageListPage.ancestorOf(tester.element(find.byType(MessageContent)));
+      check(state.composeBoxState).isNotNull().controller
+        .isA<EditMessageComposeBoxController>()
+        .content.value.text.equals('bar');
     });
   });
 
@@ -1515,15 +1977,8 @@ void main() {
       // as the number of items changes in MessageList. See
       // `findChildIndexCallback` passed into [SliverStickyHeaderList]
       // at [_MessageListState._buildListView].
-
-      // TODO(#82): Cut paddingMessage.  It's there to paper over a glitch:
-      //   the _UnreadMarker animation *does* get interrupted in the case where
-      //   the message gets pushed from one sliver to the other.  See:
-      //     https://github.com/zulip/zulip-flutter/pull/1436#issuecomment-2756738779
-      //   That case will no longer exist when #82 is complete.
       final message = eg.streamMessage(flags: []);
-      final paddingMessage = eg.streamMessage();
-      await setupMessageListPage(tester, messages: [message, paddingMessage]);
+      await setupMessageListPage(tester, messages: [message]);
       check(getAnimation(tester, message.id))
         ..value.equals(1.0)
         ..status.equals(AnimationStatus.dismissed);
@@ -1547,11 +2002,10 @@ void main() {
         ..status.equals(AnimationStatus.forward);
 
       // introduce new message
-      check(find.byType(MessageItem)).findsExactly(2);
       final newMessage = eg.streamMessage(flags:[MessageFlag.read]);
       await store.addMessage(newMessage);
       await tester.pump(); // process handleEvent
-      check(find.byType(MessageItem)).findsExactly(3);
+      check(find.byType(MessageItem)).findsExactly(2);
       check(getAnimation(tester, message.id))
         ..value.isGreaterThan(0.0)
         ..value.isLessThan(1.0)
