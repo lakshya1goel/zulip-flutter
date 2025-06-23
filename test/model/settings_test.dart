@@ -77,6 +77,12 @@ void main() {
     // TODO integration tests with sqlite
   });
 
+  // TODO(#1571) test visitFirstUnread applies default
+  // TODO(#1571) test shouldVisitFirstUnread
+
+  // TODO(#1583) test markReadOnScroll applies default
+  // TODO(#1583) test markReadOnScrollForNarrow
+
   group('getBool/setBool', () {
     test('get from default', () {
       final globalSettings = eg.globalStore(boolGlobalSettings: {}).settings;
