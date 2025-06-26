@@ -1923,6 +1923,9 @@ class ZulipLocalizationsZhHantTw extends ZulipLocalizationsZh {
   String get newDmSheetSearchHintEmpty => '增添一個或多個使用者';
 
   @override
+  String get newDmSheetSearchHintSomeSelected => '增添其他使用者…';
+
+  @override
   String composeBoxDmContentHint(String user) {
     return '訊息 @$user';
   }
@@ -1977,6 +1980,9 @@ class ZulipLocalizationsZhHantTw extends ZulipLocalizationsZh {
   String signInWithFoo(String method) {
     return '使用 $method 登入';
   }
+
+  @override
+  String get loginAddAnAccountPageTitle => '增添帳號';
 
   @override
   String get loginServerUrlLabel => '您的 Zulip 伺服器網址';
@@ -2051,10 +2057,16 @@ class ZulipLocalizationsZhHantTw extends ZulipLocalizationsZh {
   String get userRoleGuest => '訪客';
 
   @override
+  String get inboxPageTitle => '收件匣';
+
+  @override
   String get recentDmConversationsPageTitle => '私人訊息';
 
   @override
   String get recentDmConversationsSectionHeader => '私人訊息';
+
+  @override
+  String get combinedFeedPageTitle => '綜合饋給';
 
   @override
   String get mentionsPageTitle => '提及';
@@ -2066,6 +2078,15 @@ class ZulipLocalizationsZhHantTw extends ZulipLocalizationsZh {
   String get topicsButtonLabel => '話題';
 
   @override
+  String get channelFeedButtonTooltip => '頻道饋給';
+
+  @override
+  String get pinnedSubscriptionsLabel => '已釘選';
+
+  @override
+  String get unpinnedSubscriptionsLabel => '未釘選';
+
+  @override
   String get wildcardMentionChannel => 'channel';
 
   @override
@@ -2073,6 +2094,9 @@ class ZulipLocalizationsZhHantTw extends ZulipLocalizationsZh {
 
   @override
   String get wildcardMentionChannelDescription => '通知頻道';
+
+  @override
+  String get wildcardMentionTopicDescription => '通知話題';
 
   @override
   String get themeSettingTitle => '主題';
@@ -2090,8 +2114,20 @@ class ZulipLocalizationsZhHantTw extends ZulipLocalizationsZh {
   String get initialAnchorSettingFirstUnreadAlways => '第一則未讀訊息';
 
   @override
+  String get initialAnchorSettingNewestAlways => '最新訊息';
+
+  @override
+  String get experimentalFeatureSettingsPageTitle => '實驗性功能';
+
+  @override
+  String get errorNotificationOpenTitle => '無法開啟通知';
+
+  @override
   String get emojiReactionsMore => '更多';
 
   @override
   String get emojiPickerSearchEmoji => '搜尋表情符號';
+
+  @override
+  String get mutedUser => '已靜音的使用者';
 }
