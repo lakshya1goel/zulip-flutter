@@ -196,6 +196,7 @@ void main() {
   group('InboxPage', () {
     testWidgets('page builds; empty', (tester) async {
       await setupPage(tester, unreadMessages: []);
+      check(find.textContaining('There are no unread messages in your inbox.')).findsOne();
     });
 
     // TODO more checks: ordering, etc.
@@ -314,7 +315,7 @@ void main() {
         subscriptions: [(eg.subscription(channel))],
         unreadMessages: [eg.streamMessage(stream: channel, topic: '')]);
       check(find.text(eg.defaultRealmEmptyTopicDisplayName)).findsOne();
-    }, skip: true); // null topic names soon to be enabled
+    });
 
     group('topic visibility', () {
       final channel = eg.stream();

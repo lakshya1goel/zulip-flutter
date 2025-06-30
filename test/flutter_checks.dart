@@ -83,6 +83,7 @@ extension TextStyleChecks on Subject<TextStyle> {
   Subject<bool> get inherit => has((t) => t.inherit, 'inherit');
   Subject<Color?> get color => has((t) => t.color, 'color');
   Subject<double?> get fontSize => has((t) => t.fontSize, 'fontSize');
+  Subject<FontStyle?> get fontStyle => has((t) => t.fontStyle, 'fontStyle');
   Subject<FontWeight?> get fontWeight => has((t) => t.fontWeight, 'fontWeight');
   Subject<double?> get letterSpacing => has((t) => t.letterSpacing, 'letterSpacing');
   Subject<List<FontVariation>?> get fontVariations => has((t) => t.fontVariations, 'fontVariations');
@@ -140,6 +141,10 @@ extension TextChecks on Subject<Text> {
 
 extension TextEditingControllerChecks on Subject<TextEditingController> {
   Subject<String?> get text => has((t) => t.text, 'text');
+}
+
+extension FocusNodeChecks on Subject<FocusNode> {
+  Subject<bool> get hasFocus => has((t) => t.hasFocus, 'hasFocus');
 }
 
 extension ScrollMetricsChecks on Subject<ScrollMetrics> {
@@ -228,6 +233,7 @@ extension ThemeDataChecks on Subject<ThemeData> {
 
 extension InputDecorationChecks on Subject<InputDecoration> {
   Subject<String?> get hintText => has((x) => x.hintText, 'hintText');
+  Subject<TextStyle?> get hintStyle => has((x) => x.hintStyle, 'hintStyle');
 }
 
 extension TextFieldChecks on Subject<TextField> {
@@ -245,5 +251,7 @@ extension SwitchListTileChecks<T> on Subject<SwitchListTile> {
 }
 
 extension RadioListTileChecks<T> on Subject<RadioListTile<T>> {
+  // TODO(#1545) stop using the deprecated member
+  // ignore: deprecated_member_use
   Subject<bool> get checked => has((x) => x.checked, 'checked');
 }

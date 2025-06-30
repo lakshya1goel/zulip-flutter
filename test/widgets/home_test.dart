@@ -34,10 +34,25 @@ void main () {
   late PerAccountStore store;
   late FakeApiConnection connection;
 
-  Future<void> prepare(WidgetTester tester, {
-    NavigatorObserver? navigatorObserver,
-  }) async {
+  late Route<dynamic>? topRoute;
+  late Route<dynamic>? previousTopRoute;
+  late List<Route<dynamic>> pushedRoutes;
+  late Route<dynamic>? lastPoppedRoute;
+
+  final testNavObserver = TestNavigatorObserver()
+    ..onChangedTop = ((current, previous) {
+        topRoute = current;
+        previousTopRoute = previous;
+      })
+    ..onPushed = ((route, prevRoute) => pushedRoutes.add(route))
+    ..onPopped = ((route, prevRoute) => lastPoppedRoute = route);
+
+  Future<void> prepare(WidgetTester tester) async {
     addTearDown(testBinding.reset);
+    topRoute = null;
+    previousTopRoute = null;
+    pushedRoutes = [];
+    lastPoppedRoute = null;
     await testBinding.globalStore.add(eg.selfAccount, eg.initialSnapshot());
     store = await testBinding.globalStore.perAccount(eg.selfAccount.id);
     connection = store.connection as FakeApiConnection;
@@ -45,7 +60,7 @@ void main () {
 
     await tester.pumpWidget(TestZulipApp(
       accountId: eg.selfAccount.id,
-      navigatorObservers: navigatorObserver != null ? [navigatorObserver] : [],
+      navigatorObservers: [testNavObserver],
       child: const HomePage()));
     await tester.pump();
   }
@@ -110,7 +125,7 @@ void main () {
         of: find.byType(ZulipAppBar),
         matching: find.text('Channels'))).findsOne();
 
-      await tester.tap(find.byIcon(ZulipIcons.user));
+      await tester.tap(find.byIcon(ZulipIcons.two_person));
       await tester.pump();
       check(find.descendant(
         of: find.byType(ZulipAppBar),
@@ -118,67 +133,110 @@ void main () {
     });
 
     testWidgets('combined feed', (tester) async {
-      final pushedRoutes = <Route<dynamic>>[];
-      final testNavObserver = TestNavigatorObserver()
-        ..onPushed = (route, prevRoute) => pushedRoutes.add(route);
-      await prepare(tester, navigatorObserver: testNavObserver);
+      await prepare(tester);
       pushedRoutes.clear();
 
       connection.prepare(json: eg.newestGetMessagesResult(
         foundOldest: true, messages: []).toJson());
       await tester.tap(find.byIcon(ZulipIcons.message_feed));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
       check(pushedRoutes).single.isA<WidgetRoute>().page
         .isA<MessageListPage>()
         .initNarrow.equals(const CombinedFeedNarrow());
+      await tester.pump(Duration.zero); // message-list fetch
     });
   });
 
   group('menu', () {
     final designVariables = DesignVariables.light;
 
-    final inboxMenuIconFinder = find.descendant(
-      of: find.byType(BottomSheet),
-      matching: find.byIcon(ZulipIcons.inbox));
-    final channelsMenuIconFinder = find.descendant(
-      of: find.byType(BottomSheet),
-      matching: find.byIcon(ZulipIcons.hash_italic));
-    final combinedFeedMenuIconFinder = find.descendant(
-      of: find.byType(BottomSheet),
-      matching: find.byIcon(ZulipIcons.message_feed));
+    final inboxMenuIconFinder = find.byIcon(ZulipIcons.inbox);
+    final channelsMenuIconFinder = find.byIcon(ZulipIcons.hash_italic);
+    final combinedFeedMenuIconFinder = find.byIcon(ZulipIcons.message_feed);
 
-    Future<void> tapOpenMenu(WidgetTester tester) async {
+    Future<void> tapOpenMenuAndAwait(WidgetTester tester) async {
+      final topRouteBeforePress = topRoute;
       await tester.tap(find.byIcon(ZulipIcons.menu));
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 250)); // wait for animation
+      await tester.pump();
+      final topRouteAfterPress = topRoute;
+      check(topRouteAfterPress).isA<ModalBottomSheetRoute<void>>();
+      await tester.pump((topRouteAfterPress as ModalBottomSheetRoute<void>).transitionDuration);
+
+      // This was the only change during the interaction.
+      check(topRouteBeforePress).identicalTo(previousTopRoute);
+
+      // We got to the sheet by pushing, not popping or something else.
+      check(pushedRoutes.last).identicalTo(topRouteAfterPress);
+
       check(find.byType(BottomSheet)).findsOne();
     }
 
+    /// Taps the [buttonFinder] button and awaits the bottom sheet's exit.
+    ///
+    /// Includes a check that the bottom sheet is gone.
+    /// Also awaits the transition to a new pushed route, if one is pushed.
+    ///
+    /// [buttonFinder] will be run only in the bottom sheet's subtree;
+    /// it doesn't need its own `find.descendant` logic.
+    Future<void> tapButtonAndAwaitTransition(WidgetTester tester, Finder buttonFinder) async {
+      final topRouteBeforePress = topRoute;
+      check(topRouteBeforePress).isA<ModalBottomSheetRoute<void>>();
+      final numPushedRoutesBeforePress = pushedRoutes.length;
+      await tester.tap(find.descendant(
+        of: find.byType(BottomSheet),
+        matching: buttonFinder));
+      await tester.pump(Duration.zero);
+
+      final newPushedRoute = pushedRoutes.skip(numPushedRoutesBeforePress)
+        .singleOrNull;
+
+      final sheetPopDuration = (topRouteBeforePress as ModalBottomSheetRoute<void>)
+        .reverseTransitionDuration;
+      // TODO not sure why a 1ms fudge is needed; investigate.
+      await tester.pump(sheetPopDuration + Duration(milliseconds: 1));
+      check(find.byType(BottomSheet)).findsNothing();
+
+      if (newPushedRoute != null) {
+        final pushDuration = (newPushedRoute as TransitionRoute).transitionDuration;
+        if (pushDuration > sheetPopDuration) {
+          await tester.pump(pushDuration - sheetPopDuration);
+        }
+      }
+
+      // We dismissed the sheet by popping, not pushing or replacing.
+      check(topRouteBeforePress as Route<dynamic>?)
+        ..not((it) => it.identicalTo(topRoute))
+        ..identicalTo(lastPoppedRoute);
+    }
+
     void checkIconSelected(WidgetTester tester, Finder finder) {
-      check(tester.widget(finder)).isA<Icon>().color.isNotNull()
+      final widget = tester.widget(find.descendant(
+        of: find.byType(BottomSheet),
+        matching: finder));
+      check(widget).isA<Icon>().color.isNotNull()
         .isSameColorAs(designVariables.iconSelected);
     }
 
     void checkIconNotSelected(WidgetTester tester, Finder finder) {
-      check(tester.widget(finder)).isA<Icon>().color.isNotNull()
+      final widget = tester.widget(find.descendant(
+        of: find.byType(BottomSheet),
+        matching: finder));
+      check(widget).isA<Icon>().color.isNotNull()
         .isSameColorAs(designVariables.icon);
     }
 
     testWidgets('navigation states reflect on navigation bar menu buttons', (tester) async {
       await prepare(tester);
 
-      await tapOpenMenu(tester);
+      await tapOpenMenuAndAwait(tester);
       checkIconSelected(tester, inboxMenuIconFinder);
       checkIconNotSelected(tester, channelsMenuIconFinder);
-      await tester.tap(find.text('Cancel'));
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 250)); // wait for animation
+      await tapButtonAndAwaitTransition(tester, find.text('Cancel'));
 
       await tester.tap(find.byIcon(ZulipIcons.hash_italic));
       await tester.pump();
 
-      await tapOpenMenu(tester);
+      await tapOpenMenuAndAwait(tester);
       checkIconNotSelected(tester, inboxMenuIconFinder);
       checkIconSelected(tester, channelsMenuIconFinder);
     });
@@ -186,85 +244,74 @@ void main () {
     testWidgets('navigation bar menu buttons control navigation states', (tester) async {
       await prepare(tester);
 
-      await tapOpenMenu(tester);
+      await tapOpenMenuAndAwait(tester);
       checkIconSelected(tester, inboxMenuIconFinder);
       checkIconNotSelected(tester, channelsMenuIconFinder);
       check(find.byType(InboxPageBody)).findsOne();
       check(find.byType(SubscriptionListPageBody)).findsNothing();
 
-      await tester.tap(channelsMenuIconFinder);
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 250)); // wait for animation
-      check(find.byType(BottomSheet)).findsNothing();
+      await tapButtonAndAwaitTransition(tester, channelsMenuIconFinder);
       check(find.byType(InboxPageBody)).findsNothing();
       check(find.byType(SubscriptionListPageBody)).findsOne();
 
-      await tapOpenMenu(tester);
+      await tapOpenMenuAndAwait(tester);
       checkIconNotSelected(tester, inboxMenuIconFinder);
       checkIconSelected(tester, channelsMenuIconFinder);
     });
 
     testWidgets('navigation bar menu buttons dismiss the menu', (tester) async {
       await prepare(tester);
-      await tapOpenMenu(tester);
-
-      await tester.tap(channelsMenuIconFinder);
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 250)); // wait for animation
-      check(find.byType(BottomSheet)).findsNothing();
+      await tapOpenMenuAndAwait(tester);
+      await tapButtonAndAwaitTransition(tester, channelsMenuIconFinder);
     });
 
     testWidgets('cancel button dismisses the menu', (tester) async {
       await prepare(tester);
-      await tapOpenMenu(tester);
-
-      await tester.tap(find.text('Cancel'));
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 250)); // wait for animation
-      check(find.byType(BottomSheet)).findsNothing();
+      await tapOpenMenuAndAwait(tester);
+      await tapButtonAndAwaitTransition(tester, find.text('Cancel'));
     });
 
     testWidgets('menu buttons dismiss the menu', (tester) async {
       addTearDown(testBinding.reset);
+      topRoute = null;
+      previousTopRoute = null;
+      pushedRoutes = [];
+      lastPoppedRoute = null;
       await testBinding.globalStore.add(eg.selfAccount, eg.initialSnapshot());
 
-      await tester.pumpWidget(const ZulipApp());
+      await tester.pumpWidget(ZulipApp(navigatorObservers: [testNavObserver]));
       final store = await testBinding.globalStore.perAccount(eg.selfAccount.id);
       final connection = store.connection as FakeApiConnection;
       await tester.pump();
 
-      await tapOpenMenu(tester);
+      await tapOpenMenuAndAwait(tester);
 
       connection.prepare(json: eg.newestGetMessagesResult(
         foundOldest: true, messages: [eg.streamMessage()]).toJson());
-      await tester.tap(combinedFeedMenuIconFinder);
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 250)); // wait for animation
+      await tapButtonAndAwaitTransition(tester, combinedFeedMenuIconFinder);
 
       // When we go back to the home page, the menu sheet should be gone.
+      final topBeforePop = topRoute;
+      check(topBeforePop).isNotNull().isA<MaterialAccountWidgetRoute>()
+        .page.isA<MessageListPage>().initNarrow.equals(CombinedFeedNarrow());
       (await ZulipApp.navigator).pop();
-      await tester.pump(const Duration(milliseconds: 350)); // wait for pop animation
+      await tester.pump((topBeforePop as TransitionRoute).reverseTransitionDuration);
+
       check(find.byType(BottomSheet)).findsNothing();
     });
 
     testWidgets('_MyProfileButton', (tester) async {
       await prepare(tester);
-      await tapOpenMenu(tester);
-
-      await tester.tap(find.text('My profile'));
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 250)); // wait for animation
+      await tapOpenMenuAndAwait(tester);
+      await tapButtonAndAwaitTransition(tester, find.text('My profile'));
       check(find.byType(ProfilePage)).findsOne();
       check(find.text(eg.selfUser.fullName)).findsAny();
     });
 
     testWidgets('_AboutZulipButton', (tester) async {
       await prepare(tester);
-      await tapOpenMenu(tester);
-
-      await tester.tap(find.byIcon(ZulipIcons.info));
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 250)); // wait for animation
+      await tapOpenMenuAndAwait(tester);
+      await tapButtonAndAwaitTransition(tester, find.byIcon(ZulipIcons.info));
       check(find.byType(AboutZulipPage)).findsOne();
     });
   });
@@ -282,24 +329,38 @@ void main () {
 
     Future<void> prepare(WidgetTester tester) async {
       addTearDown(testBinding.reset);
+      topRoute = null;
+      previousTopRoute = null;
+      pushedRoutes = [];
+      lastPoppedRoute = null;
       await testBinding.globalStore.add(eg.selfAccount, eg.initialSnapshot());
       await testBinding.globalStore.add(eg.otherAccount, eg.initialSnapshot());
-      await tester.pumpWidget(const ZulipApp());
+      await tester.pumpWidget(ZulipApp(navigatorObservers: [testNavObserver]));
       await tester.pump(Duration.zero); // wait for the loading page
       checkOnLoadingPage();
     }
 
-    Future<void> tapChooseAccount(WidgetTester tester) async {
+    Future<void> tapTryAnotherAccount(WidgetTester tester) async {
+      final numPushedRoutesBefore = pushedRoutes.length;
       await tester.tap(find.text('Try another account'));
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 250)); // wait for animation
+      await tester.pump();
+      final pushedRoute = pushedRoutes.skip(numPushedRoutesBefore).single;
+      check(pushedRoute).isA<MaterialWidgetRoute>().page.isA<ChooseAccountPage>();
+      await tester.pump((pushedRoute as TransitionRoute).transitionDuration);
       checkOnChooseAccountPage();
     }
 
     Future<void> chooseAccountWithEmail(WidgetTester tester, String email) async {
+      lastPoppedRoute = null;
       await tester.tap(find.text(email));
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 350)); // wait for push & pop animations
+      await tester.pump();
+      check(topRoute).isA<MaterialAccountWidgetRoute>().page.isA<HomePage>();
+      check(lastPoppedRoute).isA<MaterialWidgetRoute>().page.isA<ChooseAccountPage>();
+      final popDuration = (lastPoppedRoute as TransitionRoute).reverseTransitionDuration;
+      final pushDuration = (topRoute as TransitionRoute).transitionDuration;
+      final animationDuration = popDuration > pushDuration ? popDuration : pushDuration;
+      // TODO not sure why a 1ms fudge is needed; investigate.
+      await tester.pump(animationDuration + Duration(milliseconds: 1));
       checkOnLoadingPage();
     }
 
@@ -330,11 +391,16 @@ void main () {
       testBinding.globalStore.loadPerAccountDuration = loadPerAccountDuration;
       await prepare(tester);
       await tester.pump(kTryAnotherAccountWaitPeriod);
-      await tapChooseAccount(tester);
+      await tapTryAnotherAccount(tester);
 
+      lastPoppedRoute = null;
       await tester.tap(find.byType(BackButton));
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 350)); // wait for pop animation
+      await tester.pump();
+      check(lastPoppedRoute).isA<MaterialWidgetRoute>().page.isA<ChooseAccountPage>();
+      await tester.pump(
+        (lastPoppedRoute as TransitionRoute).reverseTransitionDuration
+        // TODO not sure why a 1ms fudge is needed; investigate.
+        + Duration(milliseconds: 1));
       checkOnLoadingPage();
 
       await tester.pump(loadPerAccountDuration);
@@ -345,7 +411,7 @@ void main () {
       testBinding.globalStore.loadPerAccountDuration = loadPerAccountDuration;
       await prepare(tester);
       await tester.pump(kTryAnotherAccountWaitPeriod);
-      await tapChooseAccount(tester);
+      await tapTryAnotherAccount(tester);
 
       testBinding.globalStore.loadPerAccountDuration = loadPerAccountDuration * 2;
       await chooseAccountWithEmail(tester, eg.otherAccount.email);
@@ -363,7 +429,7 @@ void main () {
       testBinding.globalStore.loadPerAccountDuration = loadPerAccountDuration;
       await prepare(tester);
       await tester.pump(kTryAnotherAccountWaitPeriod);
-      await tapChooseAccount(tester);
+      await tapTryAnotherAccount(tester);
 
       // While still loading, choose a different account.
       await chooseAccountWithEmail(tester, eg.otherAccount.email);
@@ -385,7 +451,7 @@ void main () {
 
       await tester.pump(kTryAnotherAccountWaitPeriod);
       // While still loading the first account, choose a different account.
-      await tapChooseAccount(tester);
+      await tapTryAnotherAccount(tester);
       await chooseAccountWithEmail(tester, eg.otherAccount.email);
       // User cannot go back because the navigator stack
       // was cleared after choosing an account.
@@ -396,7 +462,7 @@ void main () {
 
       await tester.pump(kTryAnotherAccountWaitPeriod);
       // While still loading the second account, choose a different account.
-      await tapChooseAccount(tester);
+      await tapTryAnotherAccount(tester);
       await chooseAccountWithEmail(tester, thirdAccount.email);
       // User cannot go back because the navigator stack
       // was cleared after choosing an account.
@@ -413,15 +479,20 @@ void main () {
       testBinding.globalStore.loadPerAccountDuration = loadPerAccountDuration;
       await prepare(tester);
       await tester.pump(kTryAnotherAccountWaitPeriod);
-      await tapChooseAccount(tester);
+      await tapTryAnotherAccount(tester);
 
       // Stall while on ChoooseAccountPage so that the account finished loading.
       await tester.pump(loadPerAccountDuration);
       checkOnChooseAccountPage();
 
+      lastPoppedRoute = null;
       await tester.tap(find.byType(BackButton));
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 350)); // wait for pop animation
+      await tester.pump();
+      check(lastPoppedRoute).isA<MaterialWidgetRoute>().page.isA<ChooseAccountPage>();
+      await tester.pump(
+        (lastPoppedRoute as TransitionRoute).reverseTransitionDuration
+        // TODO not sure why a 1ms fudge is needed; investigate.
+        + Duration(milliseconds: 1));
       checkOnHomePage(tester, expectedAccount: eg.selfAccount);
     });
 
@@ -429,16 +500,21 @@ void main () {
       testBinding.globalStore.loadPerAccountDuration = loadPerAccountDuration;
       await prepare(tester);
       await tester.pump(kTryAnotherAccountWaitPeriod);
-      await tapChooseAccount(tester);
+      await tapTryAnotherAccount(tester);
 
       // Stall while on ChoooseAccountPage so that the account finished loading.
       await tester.pump(loadPerAccountDuration);
       checkOnChooseAccountPage();
 
       // Choosing the already loaded account should result in no loading page.
+      lastPoppedRoute = null;
       await tester.tap(find.text(eg.selfAccount.email));
-      await tester.pump(Duration.zero); // tap the button
-      await tester.pump(const Duration(milliseconds: 350)); // wait for push & pop animations
+      await tester.pump();
+      check(lastPoppedRoute).isA<MaterialWidgetRoute>().page.isA<ChooseAccountPage>();
+      await tester.pump(
+        (lastPoppedRoute as TransitionRoute).reverseTransitionDuration
+        // TODO not sure why a 1ms fudge is needed; investigate.
+        + Duration(milliseconds: 1));
       // No additional wait for loadPerAccount.
       checkOnHomePage(tester, expectedAccount: eg.selfAccount);
     });

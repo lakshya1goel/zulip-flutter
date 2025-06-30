@@ -38,7 +38,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.zulip.flutter"
+        applicationId "com.zulipmobile"
         minSdkVersion 28
         targetSdkVersion flutter.targetSdkVersion
         // These are synced to local.properties from pubspec.yaml by the flutter tool.
@@ -78,6 +78,7 @@ android {
         checkAllWarnings = true
         warningsAsErrors = true
         baseline = file("lint-baseline.xml")
+        disable += ['AndroidGradlePluginVersion']
     }
 }
 
