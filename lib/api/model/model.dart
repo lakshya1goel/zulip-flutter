@@ -110,6 +110,25 @@ class CustomProfileFieldExternalAccountData {
   Map<String, dynamic> toJson() => _$CustomProfileFieldExternalAccountDataToJson(this);
 }
 
+/// An item in the [InitialSnapshot.mutedUsers] or [MutedUsersEvent].
+///
+/// For docs, search for "muted_users:"
+/// in <https://zulip.com/api/register-queue>.
+@JsonSerializable(fieldRename: FieldRename.snake)
+class MutedUserItem {
+  final int id;
+
+  // Mobile doesn't use the timestamp; ignore.
+  // final int timestamp;
+
+  const MutedUserItem({required this.id});
+
+  factory MutedUserItem.fromJson(Map<String, dynamic> json) =>
+    _$MutedUserItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$MutedUserItemToJson(this);
+}
+
 /// An item in [InitialSnapshot.realmEmoji] or [RealmEmojiUpdateEvent].
 ///
 /// For docs, search for "realm_emoji:"
@@ -309,6 +328,59 @@ enum UserRole{
     // Roles with more privilege have lower [apiValue].
     return apiValue! <= threshold.apiValue!;
   }
+}
+
+/// A value in [InitialSnapshot.presences].
+///
+/// For docs, search for "presences:"
+/// in <https://zulip.com/api/register-queue>.
+@JsonSerializable(fieldRename: FieldRename.snake)
+class PerUserPresence {
+  final int activeTimestamp;
+  final int idleTimestamp;
+
+  PerUserPresence({
+    required this.activeTimestamp,
+    required this.idleTimestamp,
+  });
+
+  factory PerUserPresence.fromJson(Map<String, dynamic> json) =>
+    _$PerUserPresenceFromJson(json);
+
+  Map<String, dynamic> toJson() => _$PerUserPresenceToJson(this);
+}
+
+/// As in [PerClientPresence.status] and [updatePresence].
+@JsonEnum(fieldRename: FieldRename.snake, alwaysCreate: true)
+enum PresenceStatus {
+  active,
+  idle;
+
+  String toJson() => _$PresenceStatusEnumMap[this]!;
+}
+
+/// An item in `saved_snippets` from the initial snapshot.
+///
+/// For docs, search for "saved_snippets:"
+/// in <https://zulip.com/api/register-queue>.
+@JsonSerializable(fieldRename: FieldRename.snake)
+class SavedSnippet {
+  SavedSnippet({
+    required this.id,
+    required this.title,
+    required this.content,
+    required this.dateCreated,
+  });
+
+  final int id;
+  final String title;
+  final String content;
+  final int dateCreated;
+
+  factory SavedSnippet.fromJson(Map<String, Object?> json) =>
+    _$SavedSnippetFromJson(json);
+
+  Map<String, dynamic> toJson() => _$SavedSnippetToJson(this);
 }
 
 /// As in `streams` in the initial snapshot.
@@ -550,6 +622,15 @@ String? tryParseEmojiCodeToUnicode(String emojiCode) {
   }
 }
 
+/// The topic servers understand to mean "there is no topic".
+///
+/// This should match
+///   https://github.com/zulip/zulip/blob/6.0/zerver/actions/message_edit.py#L940
+/// or similar logic at the latest `main`.
+// This is hardcoded in the server, and therefore untranslated; that's
+// zulip/zulip#3639.
+const String kNoTopicTopic = '(no topic)';
+
 /// The name of a Zulip topic.
 // TODO(dart): Can we forbid calling Object members on this extension type?
 //   (The lack of "implements Object" ought to do that, but doesn't.)
@@ -581,11 +662,7 @@ extension type const TopicName(String _value) {
   /// The string this topic is displayed as to the user in our UI.
   ///
   /// At the moment this always equals [apiName].
-  /// In the future this will become null for the "general chat" topic (#1250),
-  /// so that UI code can identify when it needs to represent the topic
-  /// specially in the way prescribed for "general chat".
-  // TODO(#1250) carry out that plan
-  String get displayName => _value;
+  String? get displayName => _value.isEmpty ? null : _value;
 
   /// The key to use for "same topic as" comparisons.
   String canonicalize() => apiName.toLowerCase();
@@ -604,6 +681,53 @@ extension type const TopicName(String _value) {
   /// using [canonicalize].
   bool isSameAs(TopicName other) => canonicalize() == other.canonicalize();
 
+  /// Process this topic to match how it would appear on a message object from
+  /// the server.
+  ///
+  /// This returns the [TopicName] the server would be predicted to include
+  /// in a message object resulting from sending to this [TopicName]
+  /// in a [sendMessage] request.
+  ///
+  /// This [TopicName] is required to have no leading or trailing whitespace.
+  ///
+  /// For a client that supports empty topics, when FL>=334, the server converts
+  /// `store.realmEmptyTopicDisplayName` to an empty string; when FL>=370,
+  /// the server converts "(no topic)" to an empty string as well.
+  ///
+  /// See API docs:
+  ///   https://zulip.com/api/send-message#parameter-topic
+  TopicName processLikeServer({
+    required int zulipFeatureLevel,
+    required String? realmEmptyTopicDisplayName,
+  }) {
+    assert(_value.trim() == _value);
+    // TODO(server-10) simplify this away
+    if (zulipFeatureLevel < 334) {
+      // From the API docs:
+      // > Before Zulip 10.0 (feature level 334), empty string was not a valid
+      // > topic name for channel messages.
+      assert(_value.isNotEmpty);
+      return this;
+    }
+
+    // TODO(server-10) simplify this away
+    if (zulipFeatureLevel < 370 && _value == kNoTopicTopic) {
+      // From the API docs:
+      // > Before Zulip 10.0 (feature level 370), "(no topic)" was not
+      // > interpreted as an empty string.
+      return TopicName(kNoTopicTopic);
+    }
+
+    if (_value == kNoTopicTopic || _value == realmEmptyTopicDisplayName) {
+      // From the API docs:
+      // > When "(no topic)" or the value of realm_empty_topic_display_name
+      // > found in the POST /register response is used for [topic],
+      // > it is interpreted as an empty string.
+      return TopicName('');
+    }
+    return TopicName(_value);
+  }
+
   TopicName.fromJson(this._value);
 
   String toJson() => apiName;
@@ -614,7 +738,10 @@ extension type const TopicName(String _value) {
 /// Different from [MessageDestination], this information comes from
 /// [getMessages] or [getEvents], identifying the conversation that contains a
 /// message.
-sealed class Conversation {}
+sealed class Conversation {
+  /// Whether [this] and [other] refer to the same Zulip conversation.
+  bool isSameAs(Conversation other);
+}
 
 /// The conversation a stream message is in.
 @JsonSerializable(fieldRename: FieldRename.snake, createToJson: false)
@@ -640,6 +767,13 @@ class StreamConversation extends Conversation {
 
   factory StreamConversation.fromJson(Map<String, dynamic> json) =>
     _$StreamConversationFromJson(json);
+
+  @override
+  bool isSameAs(Conversation other) {
+    return other is StreamConversation
+      && streamId == other.streamId
+      && topic.isSameAs(other.topic);
+  }
 }
 
 /// The conversation a DM message is in.
@@ -653,6 +787,21 @@ class DmConversation extends Conversation {
 
   DmConversation({required this.allRecipientIds})
     : assert(isSortedWithoutDuplicates(allRecipientIds.toList()));
+
+  bool _equalIdSequences(Iterable<int> xs, Iterable<int> ys) {
+    if (xs.length != ys.length) return false;
+    final xs_ = xs.iterator; final ys_ = ys.iterator;
+    while (xs_.moveNext() && ys_.moveNext()) {
+      if (xs_.current != ys_.current) return false;
+    }
+    return true;
+  }
+
+  @override
+  bool isSameAs(Conversation other) {
+    if (other is! DmConversation) return false;
+    return _equalIdSequences(allRecipientIds, other.allRecipientIds);
+  }
 }
 
 /// A message or message-like object, for showing in a message list.
@@ -716,9 +865,8 @@ sealed class Message<T extends Conversation> extends MessageBase<T> {
   // final string type; // handled by runtime type of object
   @JsonKey(fromJson: _flagsFromJson)
   List<MessageFlag> flags; // Unrecognized flags won't roundtrip through {to,from}Json.
-  final String? matchContent;
-  @JsonKey(name: 'match_subject')
-  final String? matchTopic;
+  // TODO(#1663) Add matchContent and matchTopic back again;
+  //   revert the commit that removed these and related test/comment changes.
 
   static MessageEditState _messageEditStateFromJson(Object? json) {
     // This is a no-op so that [MessageEditState._readFromMessage]
@@ -763,8 +911,6 @@ sealed class Message<T extends Conversation> extends MessageBase<T> {
     required this.senderRealmStr,
     required super.timestamp,
     required this.flags,
-    required this.matchContent,
-    required this.matchTopic,
   });
 
   // TODO(dart): This has to be a static method, because factories/constructors
@@ -848,8 +994,6 @@ class StreamMessage extends Message<StreamConversation> {
     required super.senderRealmStr,
     required super.timestamp,
     required super.flags,
-    required super.matchContent,
-    required super.matchTopic,
     required this.conversation,
   });
 
@@ -910,8 +1054,6 @@ class DmMessage extends Message<DmConversation> {
     required super.senderRealmStr,
     required super.timestamp,
     required super.flags,
-    required super.matchContent,
-    required super.matchTopic,
     required this.conversation,
   });
 

@@ -23,6 +23,7 @@ import 'package:zulip/model/store.dart';
 import 'package:zulip/model/typing_status.dart';
 import 'package:zulip/widgets/action_sheet.dart';
 import 'package:zulip/widgets/app_bar.dart';
+import 'package:zulip/widgets/button.dart';
 import 'package:zulip/widgets/compose_box.dart';
 import 'package:zulip/widgets/content.dart';
 import 'package:zulip/widgets/emoji.dart';
@@ -40,6 +41,7 @@ import '../model/binding.dart';
 import '../model/test_store.dart';
 import '../stdlib_checks.dart';
 import '../test_clipboard.dart';
+import '../test_images.dart';
 import '../test_share_plus.dart';
 import 'compose_box_checks.dart';
 import 'dialog_checks.dart';
@@ -52,24 +54,45 @@ late FakeApiConnection connection;
 Future<void> setupToMessageActionSheet(WidgetTester tester, {
   required Message message,
   required Narrow narrow,
+  User? sender,
+  List<int>? mutedUserIds,
+  bool? realmAllowMessageEditing,
+  int? realmMessageContentEditLimitSeconds,
+  bool shouldSetServerEmojiData = true,
+  bool useLegacyServerEmojiData = false,
+  Future<void> Function()? beforeLongPress,
 }) async {
   addTearDown(testBinding.reset);
-  assert(narrow.containsMessage(message));
+  // TODO(#1667) will be null in a search narrow; remove `!`.
+  assert(narrow.containsMessage(message)!);
 
-  await testBinding.globalStore.add(eg.selfAccount, eg.initialSnapshot());
+  await testBinding.globalStore.add(
+    eg.selfAccount,
+    eg.initialSnapshot(
+      realmAllowMessageEditing: realmAllowMessageEditing,
+      realmMessageContentEditLimitSeconds: realmMessageContentEditLimitSeconds,
+    ));
   store = await testBinding.globalStore.perAccount(eg.selfAccount.id);
   await store.addUsers([
     eg.selfUser,
-    eg.user(userId: message.senderId),
+    sender ?? eg.user(userId: message.senderId),
     if (narrow is DmNarrow)
       ...narrow.otherRecipientIds.map((id) => eg.user(userId: id)),
   ]);
+  if (mutedUserIds != null) {
+    await store.setMutedUsers(mutedUserIds);
+  }
   if (message is StreamMessage) {
     final stream = eg.stream(streamId: message.streamId);
     await store.addStream(stream);
     await store.addSubscription(eg.subscription(stream));
   }
   connection = store.connection as FakeApiConnection;
+  if (shouldSetServerEmojiData) {
+    store.setServerEmojiData(useLegacyServerEmojiData
+      ? eg.serverEmojiDataPopularLegacy
+      : eg.serverEmojiDataPopular);
+  }
 
   connection.prepare(json: eg.newestGetMessagesResult(
     foundOldest: true, messages: [message]).toJson());
@@ -79,15 +102,29 @@ Future<void> setupToMessageActionSheet(WidgetTester tester, {
   // global store, per-account store, and message list get loaded
   await tester.pumpAndSettle();
 
-  // request the message action sheet
-  await tester.longPress(find.byType(MessageContent));
+  await beforeLongPress?.call();
+
+  // Request the message action sheet.
+  //
+  // We use `warnIfMissed: false` to suppress warnings in cases where
+  // MessageContent itself didn't hit-test as true but the action sheet still
+  // opened. The action sheet still opens because the gesture handler is an
+  // ancestor of MessageContent, but MessageContent might not hit-test as true
+  // because its render box effectively has HitTestBehavior.deferToChild, and
+  // the long-press might land where no child hit-tests as true,
+  // like if it's in padding around a Paragraph.
+  await tester.longPress(find.byType(MessageContent), warnIfMissed: false);
   // sheet appears onscreen; default duration of bottom-sheet enter animation
   await tester.pump(const Duration(milliseconds: 250));
+  // Check the action sheet did in fact open, so we don't defeat any tests that
+  // use simple `find.byIcon`-style checks to test presence/absence of a button.
+  check(find.byType(BottomSheet)).findsOne();
 }
 
 void main() {
   TestZulipBinding.ensureInitialized();
   TestWidgetsFlutterBinding.ensureInitialized();
+  MessageListPage.debugEnableMarkReadOnScroll = false;
 
   void prepareRawContentResponseSuccess({
     required Message message,
@@ -200,6 +237,7 @@ void main() {
     group('showChannelActionSheet', () {
       void checkButtons() {
         check(actionSheetFinder).findsOne();
+        checkButton('List of topics');
         checkButton('Mark channel as read');
       }
 
@@ -218,7 +256,7 @@ void main() {
       testWidgets('show with no unread messages', (tester) async {
         await prepare(hasUnreadMessages: false);
         await showFromSubscriptionList(tester);
-        check(actionSheetFinder).findsNothing();
+        check(findButtonForLabel('Mark channel as read')).findsNothing();
       });
 
       testWidgets('show from app bar in channel narrow', (tester) async {
@@ -240,6 +278,19 @@ void main() {
         await showFromRecipientHeader(tester, message: someMessage);
         checkButtons();
       });
+    });
+
+    testWidgets('TopicListButton', (tester) async {
+      await prepare();
+      await showFromAppBar(tester,
+        narrow: ChannelNarrow(someChannel.streamId));
+
+      connection.prepare(json: GetStreamTopicsResult(topics: [
+        eg.getStreamTopicsEntry(name: 'some topic foo'),
+      ]).toJson());
+      await tester.tap(findButtonForLabel('List of topics'));
+      await tester.pumpAndSettle();
+      check(find.text('some topic foo')).findsOne();
     });
 
     group('MarkChannelAsReadButton', () {
@@ -372,7 +423,6 @@ void main() {
       final topicRow = find.descendant(
         of: find.byType(ZulipAppBar),
         matching: find.text(
-          // ignore: dead_null_aware_expression // null topic names soon to be enabled
           effectiveTopic.displayName ?? eg.defaultRealmEmptyTopicDisplayName));
       await tester.longPress(topicRow);
       // sheet appears onscreen; default duration of bottom-sheet enter animation
@@ -393,7 +443,7 @@ void main() {
 
       await tester.longPress(find.descendant(
         of: find.byType(RecipientHeader),
-        matching: find.text(effectiveMessage.topic.displayName)));
+        matching: find.text(effectiveMessage.topic.displayName!)));
       // sheet appears onscreen; default duration of bottom-sheet enter animation
       await tester.pump(const Duration(milliseconds: 250));
     }
@@ -457,7 +507,7 @@ void main() {
           messages: [message]);
         check(findButtonForLabel('Mark as resolved')).findsNothing();
         check(findButtonForLabel('Mark as unresolved')).findsNothing();
-      }, skip: true); // null topic names soon to be enabled
+      });
 
       testWidgets('show from recipient header', (tester) async {
         await prepare();
@@ -811,72 +861,96 @@ void main() {
 
   group('message action sheet', () {
     group('ReactionButtons', () {
-      final popularCandidates = EmojiStore.popularEmojiCandidates;
+      testWidgets('absent if ServerEmojiData not loaded', (tester) async {
+        final message = eg.streamMessage();
+        await setupToMessageActionSheet(tester,
+          message: message,
+          narrow: TopicNarrow.ofMessage(message),
+          shouldSetServerEmojiData: false);
+        check(find.byType(ReactionButtons)).findsNothing();
+      });
 
-      for (final emoji in popularCandidates) {
-        final emojiDisplay = emoji.emojiDisplay as UnicodeEmojiDisplay;
+      for (final useLegacy in [false, true]) {
+        final popularCandidates =
+          (eg.store()..setServerEmojiData(
+            useLegacy
+              ? eg.serverEmojiDataPopularLegacy
+              : eg.serverEmojiDataPopular))
+            .popularEmojiCandidates();
+        for (final emoji in popularCandidates) {
+          final emojiDisplay = emoji.emojiDisplay as UnicodeEmojiDisplay;
 
-        Future<void> tapButton(WidgetTester tester) async {
-          await tester.tap(find.descendant(
-            of: find.byType(BottomSheet),
-            matching: find.text(emojiDisplay.emojiUnicode)));
+          Future<void> tapButton(WidgetTester tester) async {
+            await tester.tap(find.descendant(
+              of: find.byType(BottomSheet),
+              matching: find.text(emojiDisplay.emojiUnicode)));
+          }
+
+          testWidgets('${emoji.emojiName} adding success; useLegacy: $useLegacy', (tester) async {
+            final message = eg.streamMessage();
+            await setupToMessageActionSheet(tester,
+              message: message,
+              narrow: TopicNarrow.ofMessage(message),
+              useLegacyServerEmojiData: useLegacy);
+
+            connection.prepare(json: {});
+            await tapButton(tester);
+            await tester.pump(Duration.zero);
+
+            check(connection.lastRequest).isA<http.Request>()
+              ..method.equals('POST')
+              ..url.path.equals('/api/v1/messages/${message.id}/reactions')
+              ..bodyFields.deepEquals({
+                  'reaction_type': 'unicode_emoji',
+                  'emoji_code': emoji.emojiCode,
+                  'emoji_name': emoji.emojiName,
+                });
+          });
+
+          testWidgets('${emoji.emojiName} removing success; useLegacy: $useLegacy', (tester) async {
+            final message = eg.streamMessage(
+              reactions: [Reaction(
+                emojiName: emoji.emojiName,
+                emojiCode: emoji.emojiCode,
+                reactionType: ReactionType.unicodeEmoji,
+                userId: eg.selfAccount.userId)]
+            );
+            await setupToMessageActionSheet(tester,
+              message: message,
+              narrow: TopicNarrow.ofMessage(message),
+              useLegacyServerEmojiData: useLegacy);
+
+            connection.prepare(json: {});
+            await tapButton(tester);
+            await tester.pump(Duration.zero);
+
+            check(connection.lastRequest).isA<http.Request>()
+              ..method.equals('DELETE')
+              ..url.path.equals('/api/v1/messages/${message.id}/reactions')
+              ..bodyFields.deepEquals({
+                  'reaction_type': 'unicode_emoji',
+                  'emoji_code': emoji.emojiCode,
+                  'emoji_name': emoji.emojiName,
+                });
+          });
+
+          testWidgets('${emoji.emojiName} request has an error; useLegacy: $useLegacy', (tester) async {
+            final message = eg.streamMessage();
+            await setupToMessageActionSheet(tester,
+              message: message,
+              narrow: TopicNarrow.ofMessage(message),
+              useLegacyServerEmojiData: useLegacy);
+
+            connection.prepare(
+              apiException: eg.apiBadRequest(message: 'Invalid message(s)'));
+            await tapButton(tester);
+            await tester.pump(Duration.zero); // error arrives; error dialog shows
+
+            await tester.tap(find.byWidget(checkErrorDialog(tester,
+              expectedTitle: 'Adding reaction failed',
+              expectedMessage: 'Invalid message(s)')));
+          });
         }
-
-        testWidgets('${emoji.emojiName} adding success', (tester) async {
-          final message = eg.streamMessage();
-          await setupToMessageActionSheet(tester, message: message, narrow: TopicNarrow.ofMessage(message));
-
-          connection.prepare(json: {});
-          await tapButton(tester);
-          await tester.pump(Duration.zero);
-
-          check(connection.lastRequest).isA<http.Request>()
-            ..method.equals('POST')
-            ..url.path.equals('/api/v1/messages/${message.id}/reactions')
-            ..bodyFields.deepEquals({
-                'reaction_type': 'unicode_emoji',
-                'emoji_code': emoji.emojiCode,
-                'emoji_name': emoji.emojiName,
-              });
-        });
-
-        testWidgets('${emoji.emojiName} removing success', (tester) async {
-          final message = eg.streamMessage(
-            reactions: [Reaction(
-              emojiName: emoji.emojiName,
-              emojiCode: emoji.emojiCode,
-              reactionType: ReactionType.unicodeEmoji,
-              userId: eg.selfAccount.userId)]
-          );
-          await setupToMessageActionSheet(tester, message: message, narrow: TopicNarrow.ofMessage(message));
-
-          connection.prepare(json: {});
-          await tapButton(tester);
-          await tester.pump(Duration.zero);
-
-          check(connection.lastRequest).isA<http.Request>()
-            ..method.equals('DELETE')
-            ..url.path.equals('/api/v1/messages/${message.id}/reactions')
-            ..bodyFields.deepEquals({
-                'reaction_type': 'unicode_emoji',
-                'emoji_code': emoji.emojiCode,
-                'emoji_name': emoji.emojiName,
-              });
-        });
-
-        testWidgets('${emoji.emojiName} request has an error', (tester) async {
-          final message = eg.streamMessage();
-          await setupToMessageActionSheet(tester, message: message, narrow: TopicNarrow.ofMessage(message));
-
-          connection.prepare(
-            apiException: eg.apiBadRequest(message: 'Invalid message(s)'));
-          await tapButton(tester);
-          await tester.pump(Duration.zero); // error arrives; error dialog shows
-
-          await tester.tap(find.byWidget(checkErrorDialog(tester,
-            expectedTitle: 'Adding reaction failed',
-            expectedMessage: 'Invalid message(s)')));
-        });
       }
     });
 
@@ -1156,6 +1230,18 @@ void main() {
         await setupToMessageActionSheet(tester, message: message, narrow: const StarredMessagesNarrow());
         check(findQuoteAndReplyButton(tester)).isNull();
       });
+
+      testWidgets('handle empty topic', (tester) async {
+        final message = eg.streamMessage();
+        await setupToMessageActionSheet(tester,
+          message: message, narrow: TopicNarrow.ofMessage(message));
+
+        prepareRawContentResponseSuccess(message: message, rawContent: 'Hello world');
+        await tapQuoteAndReplyButton(tester);
+        check(connection.lastRequest).isA<http.Request>()
+          .url.queryParameters['allow_empty_topic_name'].equals('true');
+        await tester.pump(Duration.zero);
+      });
     });
 
     group('MarkAsUnread', () {
@@ -1256,6 +1342,79 @@ void main() {
             expectedTitle: zulipLocalizations.errorMarkAsUnreadFailedTitle,
             expectedMessage: 'NetworkException: Oops (ClientException: Oops)');
         });
+      });
+    });
+
+    group('UnrevealMutedMessageButton', () {
+      final user = eg.user(userId: 1, fullName: 'User', avatarUrl: '/foo.png');
+      final message = eg.streamMessage(sender: user,
+        content: '<p>A message</p>', reactions: [eg.unicodeEmojiReaction]);
+
+      final revealButtonFinder = find.widgetWithText(ZulipWebUiKitButton,
+        'Reveal message');
+
+      final contentFinder = find.descendant(
+        of: find.byType(MessageContent),
+        matching: find.text('A message', findRichText: true));
+
+      testWidgets('not visible if message is from normal sender (not muted)', (tester) async {
+        prepareBoringImageHttpClient();
+
+        await setupToMessageActionSheet(tester,
+          message: message,
+          narrow: const CombinedFeedNarrow(),
+          sender: user);
+        check(store.isUserMuted(user.userId)).isFalse();
+
+        check(find.byIcon(ZulipIcons.eye_off, skipOffstage: false)).findsNothing();
+
+        debugNetworkImageHttpClientProvider = null;
+      });
+
+      testWidgets('visible if message is from muted sender and revealed', (tester) async {
+        prepareBoringImageHttpClient();
+
+        await setupToMessageActionSheet(tester,
+          message: message,
+          narrow: const CombinedFeedNarrow(),
+          sender: user,
+          mutedUserIds: [user.userId],
+          beforeLongPress: () async {
+            check(contentFinder).findsNothing();
+            await tester.tap(revealButtonFinder);
+            await tester.pump();
+            check(contentFinder).findsOne();
+          },
+        );
+
+        check(find.byIcon(ZulipIcons.eye_off, skipOffstage: false)).findsOne();
+
+        debugNetworkImageHttpClientProvider = null;
+      });
+
+      testWidgets('when pressed, unreveals the message', (tester) async {
+        prepareBoringImageHttpClient();
+
+        await setupToMessageActionSheet(tester,
+          message: message,
+          narrow: const CombinedFeedNarrow(),
+          sender: user,
+          mutedUserIds: [user.userId],
+          beforeLongPress: () async {
+            check(contentFinder).findsNothing();
+            await tester.tap(revealButtonFinder);
+            await tester.pump();
+            check(contentFinder).findsOne();
+          });
+
+        await tester.ensureVisible(find.byIcon(ZulipIcons.eye_off, skipOffstage: false));
+        await tester.tap(find.byIcon(ZulipIcons.eye_off));
+        await tester.pumpAndSettle();
+
+        check(contentFinder).findsNothing();
+        check(revealButtonFinder).findsOne();
+
+        debugNetworkImageHttpClientProvider = null;
       });
     });
 
@@ -1407,6 +1566,169 @@ void main() {
         )));
 
         check(mockSharePlus.sharedString).isNull();
+      });
+    });
+
+    group('EditButton', () {
+      Future<void> tapEdit(WidgetTester tester) async {
+        await tester.ensureVisible(find.byIcon(ZulipIcons.edit, skipOffstage: false));
+        await tester.tap(find.byIcon(ZulipIcons.edit));
+        await tester.pump(); // [MenuItemButton.onPressed] called in a post-frame callback: flutter/flutter@e4a39fa2e
+      }
+
+      group('present/absent appropriately', () {
+        /// Test whether the edit-message button is visible, given params.
+        ///
+        /// The message timestamp is 60s before the current time
+        /// ([TestZulipBinding.utcNow]) as of the start of the test run.
+        ///
+        /// The message has streamId: 1 and topic: 'topic'.
+        /// The message list is for that [TopicNarrow] unless [narrow] is passed.
+        void testVisibility(bool expected, {
+          bool self = true,
+          Narrow? narrow,
+          bool allowed = true,
+          int? limit,
+          bool boxInEditMode = false,
+          bool? errorStatus,
+          bool poll = false,
+        }) {
+          // It's inconvenient here to set up a state where the compose box
+          // is in edit mode and the action sheet is opened for a message
+          // with an edit request that's in progress or in the error state.
+          // In the setup, we'd need to either use two messages or (via an edge
+          // case) two MessageListPages. It should suffice to test the
+          // boxInEditMode and errorStatus states separately.
+          assert(!boxInEditMode || errorStatus == null);
+
+          final description = [
+            'from self: $self',
+            'narrow: $narrow',
+            'realm allows: $allowed',
+            'edit limit: $limit',
+            'compose box is in editing mode: $boxInEditMode',
+            'edit-message error status: $errorStatus',
+            'has poll: $poll',
+          ].join(', ');
+
+          void checkButtonIsPresent(bool expected) {
+            if (expected) {
+              check(find.byIcon(ZulipIcons.edit, skipOffstage: false)).findsOne();
+            } else {
+              check(find.byIcon(ZulipIcons.edit, skipOffstage: false)).findsNothing();
+            }
+          }
+
+          testWidgets(description, (tester) async {
+            TypingNotifier.debugEnable = false;
+            addTearDown(TypingNotifier.debugReset);
+
+            final message = eg.streamMessage(
+              stream: eg.stream(streamId: 1),
+              topic: 'topic',
+              sender: self ? eg.selfUser : eg.otherUser,
+              timestamp: eg.utcTimestamp(testBinding.utcNow()) - 60,
+              submessages: poll
+                ? [eg.submessage(content: eg.pollWidgetData(question: 'poll', options: ['A']))]
+                : null,
+            );
+
+            await setupToMessageActionSheet(tester,
+              message: message,
+              narrow: narrow ?? TopicNarrow.ofMessage(message),
+              realmAllowMessageEditing: allowed,
+              realmMessageContentEditLimitSeconds: limit,
+            );
+
+            if (!boxInEditMode && errorStatus == null) {
+              // The state we're testing is present on the original action sheet.
+              checkButtonIsPresent(expected);
+              return;
+            }
+            // The state we're testing requires a previous "edit message" action
+            // in order to set up. Use the first action sheet for that setup step.
+
+            connection.prepare(json: GetMessageResult(
+              message: eg.streamMessage(content: 'foo')).toJson());
+            await tapEdit(tester);
+            await tester.pump(Duration.zero);
+            await tester.enterText(find.byWidgetPredicate(
+                (widget) => widget is TextField && widget.controller?.text == 'foo'),
+              'bar');
+
+            if (errorStatus == true) {
+              // We're testing the request-failed state. Prepare a failure
+              // and tap Save.
+              connection.prepare(apiException: eg.apiBadRequest());
+              await tester.tap(find.widgetWithText(ZulipWebUiKitButton, 'Save'));
+              await tester.pump(Duration.zero);
+            } else if (errorStatus == false) {
+              // We're testing the request-in-progress state. Prepare a delay,
+              // tap Save, and wait through only part of the delay.
+              connection.prepare(
+                json: UpdateMessageResult().toJson(), delay: Duration(seconds: 1));
+              await tester.tap(find.widgetWithText(ZulipWebUiKitButton, 'Save'));
+              await tester.pump(Duration(milliseconds: 500));
+            } else {
+              // We're testing the state where the compose box is in
+              // edit-message mode. Keep it that way by not tapping Save.
+            }
+
+            // See comment in setupToMessageActionSheet about warnIfMissed: false
+            await tester.longPress(find.byType(MessageContent), warnIfMissed: false);
+            // sheet appears onscreen; default duration of bottom-sheet enter animation
+            await tester.pump(const Duration(milliseconds: 250));
+            check(find.byType(BottomSheet)).findsOne();
+            checkButtonIsPresent(expected);
+
+            await tester.pump(Duration(milliseconds: 500)); // flush timers
+          });
+        }
+
+        testVisibility(true);
+        // TODO(server-6) limit 0 not expected on 6.0+
+        testVisibility(true, limit: 0);
+        testVisibility(true, limit: 600);
+        testVisibility(true, narrow: ChannelNarrow(1));
+
+        testVisibility(false, self: false);
+        testVisibility(false, narrow: CombinedFeedNarrow());
+        testVisibility(false, allowed: false);
+        testVisibility(false, limit: 10);
+        testVisibility(false, boxInEditMode: true);
+        testVisibility(false, errorStatus: false);
+        testVisibility(false, errorStatus: true);
+        testVisibility(false, poll: true);
+      });
+
+      group('tap button', () {
+        ComposeBoxController? findComposeBoxController(WidgetTester tester) {
+          return tester.stateList<ComposeBoxState>(find.byType(ComposeBox))
+            .singleOrNull?.controller;
+        }
+
+        testWidgets('smoke', (tester) async {
+          final message = eg.streamMessage(sender: eg.selfUser);
+          await setupToMessageActionSheet(tester,
+            message: message,
+            narrow: TopicNarrow.ofMessage(message),
+            realmAllowMessageEditing: true,
+            realmMessageContentEditLimitSeconds: null,
+          );
+
+          check(findComposeBoxController(tester))
+            .isA<FixedDestinationComposeBoxController>();
+
+          connection.prepare(json: GetMessageResult(
+            message: eg.streamMessage(content: 'foo')).toJson());
+          await tapEdit(tester);
+          await tester.pump(Duration.zero);
+
+          check(findComposeBoxController(tester))
+            .isA<EditMessageComposeBoxController>()
+              ..messageId.equals(message.id)
+              ..originalRawContent.equals('foo');
+        });
       });
     });
 

@@ -1,6 +1,7 @@
 import 'package:checks/checks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_checks/flutter_checks.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zulip/api/model/events.dart';
 import 'package:zulip/api/model/model.dart';
@@ -9,6 +10,7 @@ import 'package:zulip/widgets/content.dart';
 import 'package:zulip/widgets/home.dart';
 import 'package:zulip/widgets/icons.dart';
 import 'package:zulip/widgets/message_list.dart';
+import 'package:zulip/widgets/new_dm_sheet.dart';
 import 'package:zulip/widgets/page.dart';
 import 'package:zulip/widgets/recent_dm_conversations.dart';
 
@@ -25,6 +27,7 @@ import 'test_app.dart';
 Future<void> setupPage(WidgetTester tester, {
   required List<DmMessage> dmMessages,
   required List<User> users,
+  List<int>? mutedUserIds,
   NavigatorObserver? navigatorObserver,
   String? newNameForSelfUser,
 }) async {
@@ -36,6 +39,9 @@ Future<void> setupPage(WidgetTester tester, {
   await store.addUser(eg.selfUser);
   for (final user in users) {
     await store.addUser(user);
+  }
+  if (mutedUserIds != null) {
+    await store.setMutedUsers(mutedUserIds);
   }
 
   await store.addMessages(dmMessages);
@@ -56,7 +62,7 @@ Future<void> setupPage(WidgetTester tester, {
   // Switch to direct messages tab.
   await tester.tap(find.descendant(
     of: find.byType(Center),
-    matching: find.byIcon(ZulipIcons.user)));
+    matching: find.byIcon(ZulipIcons.two_person)));
   await tester.pump();
 }
 
@@ -67,6 +73,12 @@ void main() {
     Finder findConversationItem(Narrow narrow) => find.byWidgetPredicate(
       (widget) => widget is RecentDmConversationsItem && widget.narrow == narrow,
     );
+
+    testWidgets('appearance when empty', (tester) async {
+      await setupPage(tester, users: [], dmMessages: []);
+      check(find.text('You have no direct messages yet! Why not start the conversation?'))
+        .findsOne();
+    });
 
     testWidgets('page builds; conversations appear in order', (tester) async {
       final user1 = eg.user(userId: 1);
@@ -105,6 +117,32 @@ void main() {
         const Offset(0, -200), 4000);
       await tester.pumpAndSettle();
       check(tester.any(oldestConversationFinder)).isTrue(); // onscreen
+    });
+
+    testWidgets('opens new DM sheet on New DM button tap', (tester) async {
+      Route<dynamic>? lastPushedRoute;
+      Route<dynamic>? lastPoppedRoute;
+      final testNavObserver = TestNavigatorObserver()
+        ..onPushed = ((route, _) => lastPushedRoute = route)
+        ..onPopped = ((route, _) => lastPoppedRoute = route);
+
+      await setupPage(tester, navigatorObserver: testNavObserver,
+        users: [], dmMessages: []);
+
+      await tester.tap(find.widgetWithText(GestureDetector, 'New DM'));
+      await tester.pump();
+      check(lastPushedRoute).isA<ModalBottomSheetRoute<void>>();
+      await tester.pump((lastPushedRoute as TransitionRoute).transitionDuration);
+      check(find.byType(NewDmPicker)).findsOne();
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pump();
+      check(lastPoppedRoute).isA<ModalBottomSheetRoute<void>>();
+      await tester.pump(
+        (lastPoppedRoute as TransitionRoute).reverseTransitionDuration
+        // TODO not sure why a 1ms fudge is needed; investigate.
+        + Duration(milliseconds: 1));
+      check(find.byType(NewDmPicker)).findsNothing();
     });
   });
 
@@ -204,13 +242,27 @@ void main() {
       });
 
       group('1:1', () {
-        testWidgets('has right title/avatar', (tester) async {
-          final user = eg.user(userId: 1);
-          final message = eg.dmMessage(from: eg.selfUser, to: [user]);
-          await setupPage(tester, users: [user], dmMessages: [message]);
+        group('has right title/avatar', () {
+          testWidgets('non-muted user', (tester) async {
+            final user = eg.user(userId: 1);
+            final message = eg.dmMessage(from: eg.selfUser, to: [user]);
+            await setupPage(tester, users: [user], dmMessages: [message]);
 
-          checkAvatar(tester, DmNarrow.ofMessage(message, selfUserId: eg.selfUser.userId));
-          checkTitle(tester, user.fullName);
+            checkAvatar(tester, DmNarrow.ofMessage(message, selfUserId: eg.selfUser.userId));
+            checkTitle(tester, user.fullName);
+          });
+
+          testWidgets('muted user', (tester) async {
+            final user = eg.user(userId: 1);
+            final message = eg.dmMessage(from: eg.selfUser, to: [user]);
+            await setupPage(tester,
+              users: [user],
+              mutedUserIds: [user.userId],
+              dmMessages: [message]);
+
+            checkAvatar(tester, DmNarrow.ofMessage(message, selfUserId: eg.selfUser.userId));
+            checkTitle(tester, 'Muted user');
+          });
         });
 
         testWidgets('no error when user somehow missing from user store', (tester) async {
@@ -258,15 +310,45 @@ void main() {
           return result;
         }
 
-        testWidgets('has right title/avatar', (tester) async {
-          final users = usersList(2);
-          final user0 = users[0];
-          final user1 = users[1];
-          final message = eg.dmMessage(from: eg.selfUser, to: [user0, user1]);
-          await setupPage(tester, users: users, dmMessages: [message]);
+        group('has right title/avatar', () {
+          testWidgets('no users muted', (tester) async {
+            final users = usersList(2);
+            final user0 = users[0];
+            final user1 = users[1];
+            final message = eg.dmMessage(from: eg.selfUser, to: [user0, user1]);
+            await setupPage(tester, users: users, dmMessages: [message]);
 
-          checkAvatar(tester, DmNarrow.ofMessage(message, selfUserId: eg.selfUser.userId));
-          checkTitle(tester, '${user0.fullName}, ${user1.fullName}');
+            checkAvatar(tester, DmNarrow.ofMessage(message, selfUserId: eg.selfUser.userId));
+            checkTitle(tester, '${user0.fullName}, ${user1.fullName}');
+          });
+
+          testWidgets('some users muted', (tester) async {
+            final users = usersList(2);
+            final user0 = users[0];
+            final user1 = users[1];
+            final message = eg.dmMessage(from: eg.selfUser, to: [user0, user1]);
+            await setupPage(tester,
+              users: users,
+              mutedUserIds: [user0.userId],
+              dmMessages: [message]);
+
+            checkAvatar(tester, DmNarrow.ofMessage(message, selfUserId: eg.selfUser.userId));
+            checkTitle(tester, 'Muted user, ${user1.fullName}');
+          });
+
+          testWidgets('all users muted', (tester) async {
+            final users = usersList(2);
+            final user0 = users[0];
+            final user1 = users[1];
+            final message = eg.dmMessage(from: eg.selfUser, to: [user0, user1]);
+            await setupPage(tester,
+              users: users,
+              mutedUserIds: [user0.userId, user1.userId],
+              dmMessages: [message]);
+
+            checkAvatar(tester, DmNarrow.ofMessage(message, selfUserId: eg.selfUser.userId));
+            checkTitle(tester, 'Muted user, Muted user');
+          });
         });
 
         testWidgets('no error when one user somehow missing from user store', (tester) async {

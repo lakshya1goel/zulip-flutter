@@ -130,11 +130,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   static final light = DesignVariables._(
     background: const Color(0xffffffff),
     bannerBgIntDanger: const Color(0xfff2e4e4),
+    bannerBgIntInfo: const Color(0xffddecf6),
+    bannerTextIntInfo: const Color(0xff06037c),
     bgBotBar: const Color(0xfff6f6f6),
     bgContextMenu: const Color(0xfff2f2f2),
     bgCounterUnread: const Color(0xff666699).withValues(alpha: 0.15),
     bgMenuButtonActive: Colors.black.withValues(alpha: 0.05),
     bgMenuButtonSelected: Colors.white,
+    bgMessageRegular: const HSLColor.fromAHSL(1, 0, 0, 1).toColor(),
     bgTopBar: const Color(0xfff5f5f5),
     borderBar: Colors.black.withValues(alpha: 0.2),
     borderMenuButtonSelected: Colors.black.withValues(alpha: 0.2),
@@ -144,6 +147,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     btnBgAttMediumIntInfoNormal: const Color(0xff3c6bff).withValues(alpha: 0.12),
     btnLabelAttHigh: const Color(0xffffffff),
     btnLabelAttLowIntDanger: const Color(0xffc0070a),
+    btnLabelAttLowIntInfo: const Color(0xff2347c6),
     btnLabelAttMediumIntDanger: const Color(0xffac0508),
     btnLabelAttMediumIntInfo: const Color(0xff1027a6),
     btnShadowAttMed: const Color(0xff000000).withValues(alpha: 0.20),
@@ -154,23 +158,41 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     contextMenuItemMeta: const Color(0xff626573),
     contextMenuItemText: const Color(0xff381da7),
     editorButtonPressedBg: Colors.black.withValues(alpha: 0.06),
+    fabBg: const Color(0xff6e69f3),
+    fabBgPressed: const Color(0xff6159e1),
+    fabLabel: const Color(0xfff1f3fe),
+    fabLabelPressed: const Color(0xffeceefc),
+    fabShadow: const Color(0xff2b0e8a).withValues(alpha: 0.4),
     foreground: const Color(0xff000000),
     icon: const Color(0xff6159e1),
     iconSelected: const Color(0xff222222),
     labelCounterUnread: const Color(0xff222222),
     labelEdited: const HSLColor.fromAHSL(0.35, 0, 0, 0).toColor(),
     labelMenuButton: const Color(0xff222222),
+    labelSearchPrompt: const Color(0xff000000).withValues(alpha: 0.5),
     mainBackground: const Color(0xfff0f0f0),
+    neutralButtonBg: const Color(0xff8c84ae),
+    neutralButtonLabel: const Color(0xff433d5c),
+    radioBorder: Color(0xffbbbdc8),
+    radioFillSelected: Color(0xff4370f0),
+    statusAway: Color(0xff73788c).withValues(alpha: 0.25),
+
+    // Following Web because it uses a gradient, to distinguish it by shape from
+    // the "active" dot, and the Figma doesn't; Figma just has solid #d5bb6c.
+    statusIdle: Color(0xfff5b266),
+
+    statusOnline: Color(0xff46aa62),
     textInput: const Color(0xff000000),
     title: const Color(0xff1a1a1a),
     bgSearchInput: const Color(0xffe3e3e3),
     textMessage: const Color(0xff262626),
+    textMessageMuted: const Color(0xff262626).withValues(alpha: 0.6),
     channelColorSwatches: ChannelColorSwatches.light,
+    avatarPlaceholderBg: const Color(0x33808080),
+    avatarPlaceholderIcon: Colors.black.withValues(alpha: 0.5),
     contextMenuCancelBg: const Color(0xff797986).withValues(alpha: 0.15),
     contextMenuCancelPressedBg: const Color(0xff797986).withValues(alpha: 0.20),
     dmHeaderBg: const HSLColor.fromAHSL(1, 46, 0.35, 0.93).toColor(),
-    groupDmConversationIcon: Colors.black.withValues(alpha: 0.5),
-    groupDmConversationIconBg: const Color(0x33808080),
     inboxItemIconMarker: const HSLColor.fromAHSL(0.5, 0, 0, 0.2).toColor(),
     loginOrDivider: const Color(0xffdedede),
     loginOrDividerText: const Color(0xff575757),
@@ -187,11 +209,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   static final dark = DesignVariables._(
     background: const Color(0xff000000),
     bannerBgIntDanger: const Color(0xff461616),
+    bannerBgIntInfo: const Color(0xff00253d),
+    bannerTextIntInfo: const Color(0xffcbdbfd),
     bgBotBar: const Color(0xff222222),
     bgContextMenu: const Color(0xff262626),
     bgCounterUnread: const Color(0xff666699).withValues(alpha: 0.37),
     bgMenuButtonActive: Colors.black.withValues(alpha: 0.2),
     bgMenuButtonSelected: Colors.black.withValues(alpha: 0.25),
+    bgMessageRegular: const HSLColor.fromAHSL(1, 0, 0, 0.11).toColor(),
     bgTopBar: const Color(0xff242424),
     borderBar: const Color(0xffffffff).withValues(alpha: 0.1),
     borderMenuButtonSelected: Colors.white.withValues(alpha: 0.1),
@@ -201,6 +226,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     btnBgAttMediumIntInfoNormal: const Color(0xff97b6fe).withValues(alpha: 0.12),
     btnLabelAttHigh: const Color(0xffffffff).withValues(alpha: 0.85),
     btnLabelAttLowIntDanger: const Color(0xffff8b7c),
+    btnLabelAttLowIntInfo: const Color(0xff84a8fd),
     btnLabelAttMediumIntDanger: const Color(0xffff8b7c),
     btnLabelAttMediumIntInfo: const Color(0xff97b6fe),
     btnShadowAttMed: const Color(0xffffffff).withValues(alpha: 0.21),
@@ -211,26 +237,44 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     contextMenuItemMeta: const Color(0xff9194a3),
     contextMenuItemText: const Color(0xff9398fd),
     editorButtonPressedBg: Colors.white.withValues(alpha: 0.06),
+    fabBg: const Color(0xff4f42c9),
+    fabBgPressed: const Color(0xff4331b8),
+    fabLabel: const Color(0xffeceefc),
+    fabLabelPressed: const Color(0xffeceefc),
+    fabShadow: const Color(0xff18171c),
     foreground: const Color(0xffffffff),
     icon: const Color(0xff7977fe),
     iconSelected: Colors.white.withValues(alpha: 0.8),
     labelCounterUnread: const Color(0xffffffff).withValues(alpha: 0.7),
     labelEdited: const HSLColor.fromAHSL(0.35, 0, 0, 1).toColor(),
     labelMenuButton: const Color(0xffffffff).withValues(alpha: 0.85),
+    labelSearchPrompt: const Color(0xffffffff).withValues(alpha: 0.5),
     mainBackground: const Color(0xff1d1d1d),
+    neutralButtonBg: const Color(0xffd4d1e0),
+    neutralButtonLabel: const Color(0xffa9a3c2),
+    radioBorder: Color(0xff626573),
+    radioFillSelected: Color(0xff4e7cfa),
+    statusAway: Color(0xffabaeba).withValues(alpha: 0.30),
+
+    // Following Web because it uses a gradient, to distinguish it by shape from
+    // the "active" dot, and the Figma doesn't; Figma just has solid #8c853b.
+    statusIdle: Color(0xffae640a),
+
+    statusOnline: Color(0xff44bb66),
     textInput: const Color(0xffffffff).withValues(alpha: 0.9),
     title: const Color(0xffffffff).withValues(alpha: 0.9),
     bgSearchInput: const Color(0xff313131),
     textMessage: const Color(0xffffffff).withValues(alpha: 0.8),
+    textMessageMuted: const Color(0xffffffff).withValues(alpha: 0.5),
     channelColorSwatches: ChannelColorSwatches.dark,
+    // TODO(design-dark) need proper dark-theme color (this is ad hoc)
+    avatarPlaceholderBg: const Color(0x33cccccc),
+    // TODO(design-dark) need proper dark-theme color (this is ad hoc)
+    avatarPlaceholderIcon: Colors.white.withValues(alpha: 0.5),
     contextMenuCancelBg: const Color(0xff797986).withValues(alpha: 0.15), // the same as the light mode in Figma
     contextMenuCancelPressedBg: const Color(0xff797986).withValues(alpha: 0.20), // the same as the light mode in Figma
     // TODO(design-dark) need proper dark-theme color (this is ad hoc)
     dmHeaderBg: const HSLColor.fromAHSL(1, 46, 0.15, 0.2).toColor(),
-    // TODO(design-dark) need proper dark-theme color (this is ad hoc)
-    groupDmConversationIcon: Colors.white.withValues(alpha: 0.5),
-    // TODO(design-dark) need proper dark-theme color (this is ad hoc)
-    groupDmConversationIconBg: const Color(0x33cccccc),
     inboxItemIconMarker: const HSLColor.fromAHSL(0.4, 0, 0, 1).toColor(),
     loginOrDivider: const Color(0xff424242),
     loginOrDividerText: const Color(0xffa8a8a8),
@@ -252,11 +296,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   DesignVariables._({
     required this.background,
     required this.bannerBgIntDanger,
+    required this.bannerBgIntInfo,
+    required this.bannerTextIntInfo,
     required this.bgBotBar,
     required this.bgContextMenu,
     required this.bgCounterUnread,
     required this.bgMenuButtonActive,
     required this.bgMenuButtonSelected,
+    required this.bgMessageRegular,
     required this.bgTopBar,
     required this.borderBar,
     required this.borderMenuButtonSelected,
@@ -266,6 +313,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     required this.btnBgAttMediumIntInfoNormal,
     required this.btnLabelAttHigh,
     required this.btnLabelAttLowIntDanger,
+    required this.btnLabelAttLowIntInfo,
     required this.btnLabelAttMediumIntDanger,
     required this.btnLabelAttMediumIntInfo,
     required this.btnShadowAttMed,
@@ -277,22 +325,36 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     required this.contextMenuItemText,
     required this.editorButtonPressedBg,
     required this.foreground,
+    required this.fabBg,
+    required this.fabBgPressed,
+    required this.fabLabel,
+    required this.fabLabelPressed,
+    required this.fabShadow,
     required this.icon,
     required this.iconSelected,
     required this.labelCounterUnread,
     required this.labelEdited,
     required this.labelMenuButton,
+    required this.labelSearchPrompt,
     required this.mainBackground,
+    required this.neutralButtonBg,
+    required this.neutralButtonLabel,
+    required this.radioBorder,
+    required this.radioFillSelected,
+    required this.statusAway,
+    required this.statusIdle,
+    required this.statusOnline,
     required this.textInput,
     required this.title,
     required this.bgSearchInput,
     required this.textMessage,
+    required this.textMessageMuted,
     required this.channelColorSwatches,
+    required this.avatarPlaceholderBg,
+    required this.avatarPlaceholderIcon,
     required this.contextMenuCancelBg,
     required this.contextMenuCancelPressedBg,
     required this.dmHeaderBg,
-    required this.groupDmConversationIcon,
-    required this.groupDmConversationIconBg,
     required this.inboxItemIconMarker,
     required this.loginOrDivider,
     required this.loginOrDividerText,
@@ -318,11 +380,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
 
   final Color background;
   final Color bannerBgIntDanger;
+  final Color bannerBgIntInfo;
+  final Color bannerTextIntInfo;
   final Color bgBotBar;
   final Color bgContextMenu;
   final Color bgCounterUnread;
   final Color bgMenuButtonActive;
   final Color bgMenuButtonSelected;
+  final Color bgMessageRegular;
   final Color bgTopBar;
   final Color borderBar;
   final Color borderMenuButtonSelected;
@@ -332,6 +397,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   final Color btnBgAttMediumIntInfoNormal;
   final Color btnLabelAttHigh;
   final Color btnLabelAttLowIntDanger;
+  final Color btnLabelAttLowIntInfo;
   final Color btnLabelAttMediumIntDanger;
   final Color btnLabelAttMediumIntInfo;
   final Color btnShadowAttMed;
@@ -342,27 +408,41 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   final Color contextMenuItemMeta;
   final Color contextMenuItemText;
   final Color editorButtonPressedBg;
+  final Color fabBg;
+  final Color fabBgPressed;
+  final Color fabLabel;
+  final Color fabLabelPressed;
+  final Color fabShadow;
   final Color foreground;
   final Color icon;
   final Color iconSelected;
   final Color labelCounterUnread;
   final Color labelEdited;
   final Color labelMenuButton;
+  final Color labelSearchPrompt;
   final Color mainBackground;
+  final Color neutralButtonBg;
+  final Color neutralButtonLabel;
+  final Color radioBorder;
+  final Color radioFillSelected;
+  final Color statusAway;
+  final Color statusIdle;
+  final Color statusOnline;
   final Color textInput;
   final Color title;
   final Color bgSearchInput;
   final Color textMessage;
+  final Color textMessageMuted;
 
   // Not exactly from the Figma design, but from Vlad anyway.
   final ChannelColorSwatches channelColorSwatches;
 
   // Not named variables in Figma; taken from older Figma drafts, or elsewhere.
+  final Color avatarPlaceholderBg;
+  final Color avatarPlaceholderIcon;
   final Color contextMenuCancelBg; // In Figma, but unnamed.
   final Color contextMenuCancelPressedBg; // In Figma, but unnamed.
   final Color dmHeaderBg;
-  final Color groupDmConversationIcon;
-  final Color groupDmConversationIconBg;
   final Color inboxItemIconMarker;
   final Color loginOrDivider; // TODO(design-dark) need proper dark-theme color (this is ad hoc)
   final Color loginOrDividerText; // TODO(design-dark) need proper dark-theme color (this is ad hoc)
@@ -379,11 +459,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   DesignVariables copyWith({
     Color? background,
     Color? bannerBgIntDanger,
+    Color? bannerBgIntInfo,
+    Color? bannerTextIntInfo,
     Color? bgBotBar,
     Color? bgContextMenu,
     Color? bgCounterUnread,
     Color? bgMenuButtonActive,
     Color? bgMenuButtonSelected,
+    Color? bgMessageRegular,
     Color? bgTopBar,
     Color? borderBar,
     Color? borderMenuButtonSelected,
@@ -393,6 +476,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     Color? btnBgAttMediumIntInfoNormal,
     Color? btnLabelAttHigh,
     Color? btnLabelAttLowIntDanger,
+    Color? btnLabelAttLowIntInfo,
     Color? btnLabelAttMediumIntDanger,
     Color? btnLabelAttMediumIntInfo,
     Color? btnShadowAttMed,
@@ -403,23 +487,37 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     Color? contextMenuItemMeta,
     Color? contextMenuItemText,
     Color? editorButtonPressedBg,
+    Color? fabBg,
+    Color? fabBgPressed,
+    Color? fabLabel,
+    Color? fabLabelPressed,
+    Color? fabShadow,
     Color? foreground,
     Color? icon,
     Color? iconSelected,
     Color? labelCounterUnread,
     Color? labelEdited,
     Color? labelMenuButton,
+    Color? labelSearchPrompt,
     Color? mainBackground,
+    Color? neutralButtonBg,
+    Color? neutralButtonLabel,
+    Color? radioBorder,
+    Color? radioFillSelected,
+    Color? statusAway,
+    Color? statusIdle,
+    Color? statusOnline,
     Color? textInput,
     Color? title,
     Color? bgSearchInput,
     Color? textMessage,
+    Color? textMessageMuted,
     ChannelColorSwatches? channelColorSwatches,
+    Color? avatarPlaceholderBg,
+    Color? avatarPlaceholderIcon,
     Color? contextMenuCancelBg,
     Color? contextMenuCancelPressedBg,
     Color? dmHeaderBg,
-    Color? groupDmConversationIcon,
-    Color? groupDmConversationIconBg,
     Color? inboxItemIconMarker,
     Color? loginOrDivider,
     Color? loginOrDividerText,
@@ -435,11 +533,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     return DesignVariables._(
       background: background ?? this.background,
       bannerBgIntDanger: bannerBgIntDanger ?? this.bannerBgIntDanger,
+      bannerBgIntInfo: bannerBgIntInfo ?? this.bannerBgIntInfo,
+      bannerTextIntInfo: bannerTextIntInfo ?? this.bannerTextIntInfo,
       bgBotBar: bgBotBar ?? this.bgBotBar,
       bgContextMenu: bgContextMenu ?? this.bgContextMenu,
       bgCounterUnread: bgCounterUnread ?? this.bgCounterUnread,
       bgMenuButtonActive: bgMenuButtonActive ?? this.bgMenuButtonActive,
       bgMenuButtonSelected: bgMenuButtonSelected ?? this.bgMenuButtonSelected,
+      bgMessageRegular: bgMessageRegular ?? this.bgMessageRegular,
       bgTopBar: bgTopBar ?? this.bgTopBar,
       borderBar: borderBar ?? this.borderBar,
       borderMenuButtonSelected: borderMenuButtonSelected ?? this.borderMenuButtonSelected,
@@ -449,6 +550,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
       btnBgAttMediumIntInfoNormal: btnBgAttMediumIntInfoNormal ?? this.btnBgAttMediumIntInfoNormal,
       btnLabelAttHigh: btnLabelAttHigh ?? this.btnLabelAttHigh,
       btnLabelAttLowIntDanger: btnLabelAttLowIntDanger ?? this.btnLabelAttLowIntDanger,
+      btnLabelAttLowIntInfo: btnLabelAttLowIntInfo ?? this.btnLabelAttLowIntInfo,
       btnLabelAttMediumIntDanger: btnLabelAttMediumIntDanger ?? this.btnLabelAttMediumIntDanger,
       btnLabelAttMediumIntInfo: btnLabelAttMediumIntInfo ?? this.btnLabelAttMediumIntInfo,
       btnShadowAttMed: btnShadowAttMed ?? this.btnShadowAttMed,
@@ -460,22 +562,36 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
       contextMenuItemText: contextMenuItemText ?? this.contextMenuItemText,
       editorButtonPressedBg: editorButtonPressedBg ?? this.editorButtonPressedBg,
       foreground: foreground ?? this.foreground,
+      fabBg: fabBg ?? this.fabBg,
+      fabBgPressed: fabBgPressed ?? this.fabBgPressed,
+      fabLabel: fabLabel ?? this.fabLabel,
+      fabLabelPressed: fabLabelPressed ?? this.fabLabelPressed,
+      fabShadow: fabShadow ?? this.fabShadow,
       icon: icon ?? this.icon,
       iconSelected: iconSelected ?? this.iconSelected,
       labelCounterUnread: labelCounterUnread ?? this.labelCounterUnread,
       labelEdited: labelEdited ?? this.labelEdited,
       labelMenuButton: labelMenuButton ?? this.labelMenuButton,
+      labelSearchPrompt: labelSearchPrompt ?? this.labelSearchPrompt,
       mainBackground: mainBackground ?? this.mainBackground,
+      neutralButtonBg: neutralButtonBg ?? this.neutralButtonBg,
+      neutralButtonLabel: neutralButtonLabel ?? this.neutralButtonLabel,
+      radioBorder: radioBorder ?? this.radioBorder,
+      radioFillSelected: radioFillSelected ?? this.radioFillSelected,
+      statusAway: statusAway ?? this.statusAway,
+      statusIdle: statusIdle ?? this.statusIdle,
+      statusOnline: statusOnline ?? this.statusOnline,
       textInput: textInput ?? this.textInput,
       title: title ?? this.title,
       bgSearchInput: bgSearchInput ?? this.bgSearchInput,
       textMessage: textMessage ?? this.textMessage,
+      textMessageMuted: textMessageMuted ?? this.textMessageMuted,
       channelColorSwatches: channelColorSwatches ?? this.channelColorSwatches,
+      avatarPlaceholderBg: avatarPlaceholderBg ?? this.avatarPlaceholderBg,
+      avatarPlaceholderIcon: avatarPlaceholderIcon ?? this.avatarPlaceholderIcon,
       contextMenuCancelBg: contextMenuCancelBg ?? this.contextMenuCancelBg,
       contextMenuCancelPressedBg: contextMenuCancelPressedBg ?? this.contextMenuCancelPressedBg,
       dmHeaderBg: dmHeaderBg ?? this.dmHeaderBg,
-      groupDmConversationIcon: groupDmConversationIcon ?? this.groupDmConversationIcon,
-      groupDmConversationIconBg: groupDmConversationIconBg ?? this.groupDmConversationIconBg,
       inboxItemIconMarker: inboxItemIconMarker ?? this.inboxItemIconMarker,
       loginOrDivider: loginOrDivider ?? this.loginOrDivider,
       loginOrDividerText: loginOrDividerText ?? this.loginOrDividerText,
@@ -498,11 +614,14 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
     return DesignVariables._(
       background: Color.lerp(background, other.background, t)!,
       bannerBgIntDanger: Color.lerp(bannerBgIntDanger, other.bannerBgIntDanger, t)!,
+      bannerBgIntInfo: Color.lerp(bannerBgIntInfo, other.bannerBgIntInfo, t)!,
+      bannerTextIntInfo: Color.lerp(bannerTextIntInfo, other.bannerTextIntInfo, t)!,
       bgBotBar: Color.lerp(bgBotBar, other.bgBotBar, t)!,
       bgContextMenu: Color.lerp(bgContextMenu, other.bgContextMenu, t)!,
       bgCounterUnread: Color.lerp(bgCounterUnread, other.bgCounterUnread, t)!,
       bgMenuButtonActive: Color.lerp(bgMenuButtonActive, other.bgMenuButtonActive, t)!,
       bgMenuButtonSelected: Color.lerp(bgMenuButtonSelected, other.bgMenuButtonSelected, t)!,
+      bgMessageRegular: Color.lerp(bgMessageRegular, other.bgMessageRegular, t)!,
       bgTopBar: Color.lerp(bgTopBar, other.bgTopBar, t)!,
       borderBar: Color.lerp(borderBar, other.borderBar, t)!,
       borderMenuButtonSelected: Color.lerp(borderMenuButtonSelected, other.borderMenuButtonSelected, t)!,
@@ -512,6 +631,7 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
       btnBgAttMediumIntInfoNormal: Color.lerp(btnBgAttMediumIntInfoNormal, other.btnBgAttMediumIntInfoNormal, t)!,
       btnLabelAttHigh: Color.lerp(btnLabelAttHigh, other.btnLabelAttHigh, t)!,
       btnLabelAttLowIntDanger: Color.lerp(btnLabelAttLowIntDanger, other.btnLabelAttLowIntDanger, t)!,
+      btnLabelAttLowIntInfo: Color.lerp(btnLabelAttLowIntInfo, other.btnLabelAttLowIntInfo, t)!,
       btnLabelAttMediumIntDanger: Color.lerp(btnLabelAttMediumIntDanger, other.btnLabelAttMediumIntDanger, t)!,
       btnLabelAttMediumIntInfo: Color.lerp(btnLabelAttMediumIntInfo, other.btnLabelAttMediumIntInfo, t)!,
       btnShadowAttMed: Color.lerp(btnShadowAttMed, other.btnShadowAttMed, t)!,
@@ -523,22 +643,36 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
       contextMenuItemText: Color.lerp(contextMenuItemText, other.contextMenuItemText, t)!,
       editorButtonPressedBg: Color.lerp(editorButtonPressedBg, other.editorButtonPressedBg, t)!,
       foreground: Color.lerp(foreground, other.foreground, t)!,
+      fabBg: Color.lerp(fabBg, other.fabBg, t)!,
+      fabBgPressed: Color.lerp(fabBgPressed, other.fabBgPressed, t)!,
+      fabLabel: Color.lerp(fabLabel, other.fabLabel, t)!,
+      fabLabelPressed: Color.lerp(fabLabelPressed, other.fabLabelPressed, t)!,
+      fabShadow: Color.lerp(fabShadow, other.fabShadow, t)!,
       icon: Color.lerp(icon, other.icon, t)!,
       iconSelected: Color.lerp(iconSelected, other.iconSelected, t)!,
       labelCounterUnread: Color.lerp(labelCounterUnread, other.labelCounterUnread, t)!,
       labelEdited: Color.lerp(labelEdited, other.labelEdited, t)!,
       labelMenuButton: Color.lerp(labelMenuButton, other.labelMenuButton, t)!,
+      labelSearchPrompt: Color.lerp(labelSearchPrompt, other.labelSearchPrompt, t)!,
       mainBackground: Color.lerp(mainBackground, other.mainBackground, t)!,
+      neutralButtonBg: Color.lerp(neutralButtonBg, other.neutralButtonBg, t)!,
+      neutralButtonLabel: Color.lerp(neutralButtonLabel, other.neutralButtonLabel, t)!,
+      radioBorder: Color.lerp(radioBorder, other.radioBorder, t)!,
+      radioFillSelected: Color.lerp(radioFillSelected, other.radioFillSelected, t)!,
+      statusAway: Color.lerp(statusAway, other.statusAway, t)!,
+      statusIdle: Color.lerp(statusIdle, other.statusIdle, t)!,
+      statusOnline: Color.lerp(statusOnline, other.statusOnline, t)!,
       textInput: Color.lerp(textInput, other.textInput, t)!,
       title: Color.lerp(title, other.title, t)!,
       bgSearchInput: Color.lerp(bgSearchInput, other.bgSearchInput, t)!,
       textMessage: Color.lerp(textMessage, other.textMessage, t)!,
+      textMessageMuted: Color.lerp(textMessageMuted, other.textMessageMuted, t)!,
       channelColorSwatches: ChannelColorSwatches.lerp(channelColorSwatches, other.channelColorSwatches, t),
+      avatarPlaceholderBg: Color.lerp(avatarPlaceholderBg, other.avatarPlaceholderBg, t)!,
+      avatarPlaceholderIcon: Color.lerp(avatarPlaceholderIcon, other.avatarPlaceholderIcon, t)!,
       contextMenuCancelBg: Color.lerp(contextMenuCancelBg, other.contextMenuCancelBg, t)!,
       contextMenuCancelPressedBg: Color.lerp(contextMenuCancelPressedBg, other.contextMenuCancelPressedBg, t)!,
       dmHeaderBg: Color.lerp(dmHeaderBg, other.dmHeaderBg, t)!,
-      groupDmConversationIcon: Color.lerp(groupDmConversationIcon, other.groupDmConversationIcon, t)!,
-      groupDmConversationIconBg: Color.lerp(groupDmConversationIconBg, other.groupDmConversationIconBg, t)!,
       inboxItemIconMarker: Color.lerp(inboxItemIconMarker, other.inboxItemIconMarker, t)!,
       loginOrDivider: Color.lerp(loginOrDivider, other.loginOrDivider, t)!,
       loginOrDividerText: Color.lerp(loginOrDividerText, other.loginOrDividerText, t)!,
@@ -554,10 +688,19 @@ class DesignVariables extends ThemeExtension<DesignVariables> {
   }
 }
 
+// This is taken from:
+//   https://github.com/zulip/zulip/blob/b248e2d93/web/src/stream_data.ts#L40
+const kDefaultChannelColorSwatchBaseColor = 0xffc2c2c2;
+
 /// The theme-appropriate [ChannelColorSwatch] based on [subscription.color].
 ///
+/// If [subscription] is null, [ChannelColorSwatch] will be based on
+/// [kDefaultChannelColorSwatchBaseColor].
+///
 /// For how this value is cached, see [ChannelColorSwatches.forBaseColor].
-ChannelColorSwatch colorSwatchFor(BuildContext context, Subscription subscription) {
+// TODO(#188) pick different colors for unsubscribed channels
+ChannelColorSwatch colorSwatchFor(BuildContext context, Subscription? subscription) {
   return DesignVariables.of(context)
-    .channelColorSwatches.forBaseColor(subscription.color);
+    .channelColorSwatches.forBaseColor(
+      subscription?.color ?? kDefaultChannelColorSwatchBaseColor);
 }

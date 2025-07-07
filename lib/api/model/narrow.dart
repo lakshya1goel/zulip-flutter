@@ -173,18 +173,16 @@ class ApiNarrowPmWith extends ApiNarrowDm {
   ApiNarrowPmWith._(super.operand, {super.negated});
 }
 
-/// An [ApiNarrowElement] with the 'with' operator.
-///
-/// If part of [ApiNarrow] use [resolveApiNarrowForServer].
-class ApiNarrowWith extends ApiNarrowElement {
-  @override String get operator => 'with';
+/// An [ApiNarrowElement] with the 'search' operator.
+class ApiNarrowSearch extends ApiNarrowElement {
+  @override String get operator => 'search';
 
-  @override final int operand;
+  @override final String operand;
 
-  ApiNarrowWith(this.operand, {super.negated});
+  ApiNarrowSearch(this.operand, {super.negated});
 
-  factory ApiNarrowWith.fromJson(Map<String, dynamic> json) => ApiNarrowWith(
-    json['operand'] as int,
+  factory ApiNarrowSearch.fromJson(Map<String, dynamic> json) => ApiNarrowSearch(
+    json['operand'] as String,
     negated: json['negated'] as bool? ?? false,
   );
 }
@@ -227,6 +225,22 @@ enum IsOperand {
   String toString() => _$IsOperandEnumMap[this]!;
 
   String toJson() => toString();
+}
+
+/// An [ApiNarrowElement] with the 'with' operator.
+///
+/// If part of [ApiNarrow] use [resolveApiNarrowForServer].
+class ApiNarrowWith extends ApiNarrowElement {
+  @override String get operator => 'with';
+
+  @override final int operand;
+
+  ApiNarrowWith(this.operand, {super.negated});
+
+  factory ApiNarrowWith.fromJson(Map<String, dynamic> json) => ApiNarrowWith(
+    json['operand'] as int,
+    negated: json['negated'] as bool? ?? false,
+  );
 }
 
 class ApiNarrowMessageId extends ApiNarrowElement {

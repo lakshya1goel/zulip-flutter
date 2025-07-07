@@ -8,6 +8,7 @@ import '../model/unreads.dart';
 import 'action_sheet.dart';
 import 'icons.dart';
 import 'message_list.dart';
+import 'page.dart';
 import 'sticky_header.dart';
 import 'store.dart';
 import 'text.dart';
@@ -82,6 +83,7 @@ class _InboxPageState extends State<InboxPageBody> with PerAccountStoreAwareStat
 
   @override
   Widget build(BuildContext context) {
+    final zulipLocalizations = ZulipLocalizations.of(context);
     final store = PerAccountStoreWidget.of(context);
     final subscriptions = store.subscriptions;
 
@@ -158,6 +160,12 @@ class _InboxPageState extends State<InboxPageBody> with PerAccountStoreAwareStat
         return bLastUnreadId.compareTo(aLastUnreadId);
       });
       sections.add(_StreamSectionData(streamId, countInStream, streamHasMention, topicItems));
+    }
+
+    if (sections.isEmpty) {
+      return PageBodyEmptyContentPlaceholder(
+        // TODO(#315) add e.g. "You might be interested in recent conversations."
+        message: zulipLocalizations.inboxEmptyPlaceholder);
     }
 
     return SafeArea(
@@ -319,7 +327,7 @@ class _AllDmsHeaderItem extends _HeaderItem {
 
   @override String title(ZulipLocalizations zulipLocalizations) =>
     zulipLocalizations.recentDmConversationsSectionHeader;
-  @override IconData get icon => ZulipIcons.user;
+  @override IconData get icon => ZulipIcons.two_person;
 
   // TODO(design) check if this is the right variable for these
   @override Color collapsedIconColor(context) => DesignVariables.of(context).labelMenuButton;
@@ -387,6 +395,7 @@ class _DmItem extends StatelessWidget {
     final store = PerAccountStoreWidget.of(context);
     final designVariables = DesignVariables.of(context);
 
+    // TODO write a test where a/the recipient is muted
     final title = switch (narrow.otherRecipientIds) { // TODO dedupe with [RecentDmConversationsItem]
       [] => store.selfUser.fullName,
       [var otherUserId] => store.userDisplayName(otherUserId),
@@ -546,14 +555,12 @@ class _TopicItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 17,
                   height: (20 / 17),
-                  // ignore: unnecessary_null_comparison // null topic names soon to be enabled
                   fontStyle: topic.displayName == null ? FontStyle.italic : null,
                   // TODO(design) check if this is the right variable
                   color: designVariables.labelMenuButton,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                // ignore: dead_null_aware_expression // null topic names soon to be enabled
                 topic.displayName ?? store.realmEmptyTopicDisplayName))),
             const SizedBox(width: 12),
             if (hasMention) const _IconMarker(icon: ZulipIcons.at_sign),

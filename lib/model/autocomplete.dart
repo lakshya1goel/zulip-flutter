@@ -486,6 +486,7 @@ class MentionAutocompleteView extends AutocompleteView<MentionAutocompleteQuery,
       case CombinedFeedNarrow():
       case MentionsNarrow():
       case StarredMessagesNarrow():
+      case KeywordSearchNarrow():
         assert(false, 'No compose box, thus no autocomplete is available in ${narrow.runtimeType}.');
     }
     return (userA, userB) => _compareByRelevance(userA, userB,
@@ -556,7 +557,6 @@ class MentionAutocompleteView extends AutocompleteView<MentionAutocompleteQuery,
   /// returns a positive number if [userB] is more recent than [userA],
   /// and returns `0` if both [userA] and [userB] are equally recent
   /// or there is no DM exchanged with them whatsoever.
-  @visibleForTesting
   static int compareByDms(User userA, User userB, {required PerAccountStore store}) {
     final recentDms = store.recentDmConversationsView;
     final aLatestMessageId = recentDms.latestMessagesByRecipient[userA.userId];
@@ -904,7 +904,9 @@ class TopicAutocompleteView extends AutocompleteView<TopicAutocompleteQuery, Top
   Future<void> _fetch() async {
      assert(!_isFetching);
     _isFetching = true;
-    final result = await getStreamTopics(store.connection, streamId: streamId);
+    final result = await getStreamTopics(store.connection, streamId: streamId,
+      allowEmptyTopicName: true,
+    );
     _topics = result.topics.map((e) => e.name);
     _isFetching = false;
     return _startSearch();
@@ -942,13 +944,11 @@ class TopicAutocompleteQuery extends AutocompleteQuery {
   bool testTopic(TopicName topic, PerAccountStore store) {
     // TODO(#881): Sort by match relevance, like web does.
 
-    // ignore: unnecessary_null_comparison // null topic names soon to be enabled
     if (topic.displayName == null) {
       return store.realmEmptyTopicDisplayName.toLowerCase()
         .contains(raw.toLowerCase());
     }
     return topic.displayName != raw
-      // ignore: unnecessary_non_null_assertion // null topic names soon to be enabled
       && topic.displayName!.toLowerCase().contains(raw.toLowerCase());
   }
 

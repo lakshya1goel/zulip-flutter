@@ -1,10 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:checks/checks.dart';
+import 'package:crypto/crypto.dart';
+import 'package:fake_async/fake_async.dart';
+import 'package:http/http.dart' as http;
 import 'package:test/scaffolding.dart';
 import 'package:zulip/api/model/events.dart';
 import 'package:zulip/api/model/model.dart';
 import 'package:zulip/api/model/submessage.dart';
+import 'package:zulip/api/route/messages.dart';
+import 'package:zulip/model/message.dart';
 import 'package:zulip/model/message_list.dart';
 import 'package:zulip/model/narrow.dart';
 import 'package:zulip/model/store.dart';
@@ -13,12 +20,18 @@ import '../api/fake_api.dart';
 import '../api/model/model_checks.dart';
 import '../api/model/submessage_checks.dart';
 import '../example_data.dart' as eg;
+import '../fake_async.dart';
+import '../fake_async_checks.dart';
 import '../stdlib_checks.dart';
+import 'binding.dart';
+import 'message_checks.dart';
 import 'message_list_test.dart';
 import 'store_checks.dart';
 import 'test_store.dart';
 
 void main() {
+  TestZulipBinding.ensureInitialized();
+
   // These "late" variables are the common state operated on by each test.
   // Each test case calls [prepare] to initialize them.
   late Subscription subscription;
@@ -37,33 +50,40 @@ void main() {
   void checkNotifiedOnce() => checkNotified(count: 1);
 
   /// Initialize [store] and the rest of the test state.
-  Future<void> prepare({Narrow narrow = const CombinedFeedNarrow()}) async {
-    final stream = eg.stream(streamId: eg.defaultStreamMessageStreamId);
+  Future<void> prepare({
+    ZulipStream? stream,
+    int? zulipFeatureLevel,
+  }) async {
+    stream ??= eg.stream(streamId: eg.defaultStreamMessageStreamId);
     subscription = eg.subscription(stream);
-    store = eg.store();
+    final selfAccount = eg.selfAccount.copyWith(zulipFeatureLevel: zulipFeatureLevel);
+    store = eg.store(account: selfAccount,
+      initialSnapshot: eg.initialSnapshot(zulipFeatureLevel: zulipFeatureLevel));
     await store.addStream(stream);
     await store.addSubscription(subscription);
     connection = store.connection as FakeApiConnection;
     notifiedCount = 0;
-    messageList = MessageListView.init(store: store, narrow: narrow)
+    messageList = MessageListView.init(store: store,
+        narrow: const CombinedFeedNarrow(),
+        anchor: AnchorCode.newest)
       ..addListener(() {
         notifiedCount++;
       });
+    addTearDown(messageList.dispose);
     check(messageList).fetched.isFalse();
     checkNotNotified();
+
+    // This cleans up possibly pending timers from [MessageStoreImpl].
+    addTearDown(store.dispose);
   }
 
   /// Perform the initial message fetch for [messageList].
   ///
   /// The test case must have already called [prepare] to initialize the state.
-  ///
-  /// This does not support submessages. Use [prepareMessageWithSubmessages]
-  /// instead if needed.
   Future<void> prepareMessages(
     List<Message> messages, {
     bool foundOldest = false,
   }) async {
-    assert(messages.every((message) => message.poll == null));
     connection.prepare(json:
       eg.newestGetMessagesResult(foundOldest: foundOldest, messages: messages).toJson());
     await messageList.fetchInitial();
@@ -74,6 +94,383 @@ void main() {
     await store.addMessages(messages);
     checkNotified(count: messageList.fetched ? messages.length : 0);
   }
+
+  test('dispose cancels pending timers', () => awaitFakeAsync((async) async {
+    final stream = eg.stream();
+    final store = eg.store();
+    await store.addStream(stream);
+    await store.addSubscription(eg.subscription(stream));
+
+    (store.connection as FakeApiConnection).prepare(
+      json: SendMessageResult(id: 1).toJson(),
+      delay: const Duration(seconds: 1));
+    unawaited(store.sendMessage(
+      destination: StreamDestination(stream.streamId, eg.t('topic')),
+      content: 'content'));
+    check(async.pendingTimers).deepEquals(<Condition<Object?>>[
+      (it) => it.isA<FakeTimer>().duration.equals(kLocalEchoDebounceDuration),
+      (it) => it.isA<FakeTimer>().duration.equals(kSendMessageOfferRestoreWaitPeriod),
+      (it) => it.isA<FakeTimer>().duration.equals(const Duration(seconds: 1)),
+    ]);
+
+    store.dispose();
+    check(async.pendingTimers).single.duration.equals(const Duration(seconds: 1));
+  }));
+
+  group('sendMessage', () {
+    final stream = eg.stream();
+    final streamDestination = StreamDestination(stream.streamId, eg.t('some topic'));
+    late StreamMessage message;
+
+    test('outbox messages get unique localMessageId', () async {
+      await prepare(stream: stream);
+      await prepareMessages([]);
+
+      for (int i = 0; i < 10; i++) {
+        connection.prepare(json: SendMessageResult(id: 1).toJson());
+        await store.sendMessage(destination: streamDestination, content: 'content');
+      }
+      // [store.outboxMessages] has the same number of keys (localMessageId)
+      // as the number of sent messages, which are guaranteed to be distinct.
+      check(store.outboxMessages).keys.length.equals(10);
+    });
+
+    Subject<OutboxMessageState> checkState() =>
+      check(store.outboxMessages).values.single.state;
+
+    Future<void> prepareOutboxMessage({
+      MessageDestination? destination,
+      int? zulipFeatureLevel,
+    }) async {
+      message = eg.streamMessage(stream: stream);
+      await prepare(stream: stream, zulipFeatureLevel: zulipFeatureLevel);
+      await prepareMessages([eg.streamMessage(stream: stream)]);
+      connection.prepare(json: SendMessageResult(id: 1).toJson());
+      await store.sendMessage(
+        destination: destination ?? streamDestination, content: 'content');
+    }
+
+    late Future<void> outboxMessageFailFuture;
+    Future<void> prepareOutboxMessageToFailAfterDelay(Duration delay) async {
+      message = eg.streamMessage(stream: stream);
+      await prepare(stream: stream);
+      await prepareMessages([eg.streamMessage(stream: stream)]);
+      connection.prepare(httpException: SocketException('failed'), delay: delay);
+      outboxMessageFailFuture = store.sendMessage(
+        destination: streamDestination, content: 'content');
+    }
+
+    Future<void> receiveMessage([Message? messageReceived]) async {
+      await store.handleEvent(eg.messageEvent(messageReceived ?? message,
+        localMessageId: store.outboxMessages.keys.single));
+    }
+
+    test('smoke DM: hidden -> waiting -> (delete)', () => awaitFakeAsync((async) async {
+      await prepareOutboxMessage(destination: DmDestination(
+        userIds: [eg.selfUser.userId, eg.otherUser.userId]));
+      checkState().equals(OutboxMessageState.hidden);
+      checkNotNotified();
+
+      async.elapse(kLocalEchoDebounceDuration);
+      checkState().equals(OutboxMessageState.waiting);
+      checkNotifiedOnce();
+
+      await receiveMessage(eg.dmMessage(from: eg.selfUser, to: [eg.otherUser]));
+      check(store.outboxMessages).isEmpty();
+      checkNotifiedOnce();
+    }));
+
+    test('smoke stream message: hidden -> waiting -> (delete)', () => awaitFakeAsync((async) async {
+      await prepareOutboxMessage(destination: StreamDestination(
+        stream.streamId, eg.t('foo')));
+      checkState().equals(OutboxMessageState.hidden);
+      checkNotNotified();
+
+      async.elapse(kLocalEchoDebounceDuration);
+      checkState().equals(OutboxMessageState.waiting);
+      checkNotifiedOnce();
+
+      await receiveMessage(eg.streamMessage(stream: stream, topic: 'foo'));
+      check(store.outboxMessages).isEmpty();
+      checkNotifiedOnce();
+    }));
+
+    test('hidden -> waiting and never transition to waitPeriodExpired', () => awaitFakeAsync((async) async {
+      await prepareOutboxMessage();
+      checkState().equals(OutboxMessageState.hidden);
+      checkNotNotified();
+
+      async.elapse(kLocalEchoDebounceDuration);
+      checkState().equals(OutboxMessageState.waiting);
+      checkNotifiedOnce();
+
+      // Wait till we reach at least [kSendMessageOfferRestoreWaitPeriod] after
+      // the send request was initiated.
+      async.elapse(
+        kSendMessageOfferRestoreWaitPeriod - kLocalEchoDebounceDuration);
+      async.flushTimers();
+      // The outbox message should stay in the waiting state;
+      // it should not transition to waitPeriodExpired.
+      checkState().equals(OutboxMessageState.waiting);
+      checkNotNotified();
+    }));
+
+    test('waiting -> waitPeriodExpired', () => awaitFakeAsync((async) async {
+      await prepareOutboxMessageToFailAfterDelay(
+        kSendMessageOfferRestoreWaitPeriod + Duration(seconds: 1));
+      async.elapse(kLocalEchoDebounceDuration);
+      checkState().equals(OutboxMessageState.waiting);
+      checkNotifiedOnce();
+
+      async.elapse(kSendMessageOfferRestoreWaitPeriod - kLocalEchoDebounceDuration);
+      checkState().equals(OutboxMessageState.waitPeriodExpired);
+      checkNotifiedOnce();
+
+      await check(outboxMessageFailFuture).throws();
+    }));
+
+    test('waiting -> waitPeriodExpired -> waiting and never return to waitPeriodExpired', () => awaitFakeAsync((async) async {
+      await prepare(stream: stream);
+      await prepareMessages([eg.streamMessage(stream: stream)]);
+      // Set up a [sendMessage] request that succeeds after enough delay,
+      // for the outbox message to reach the waitPeriodExpired state.
+      // TODO extract helper to add prepare an outbox message with a delayed
+      //   successful [sendMessage] request if we have more tests like this
+      connection.prepare(json: SendMessageResult(id: 1).toJson(),
+        delay: kSendMessageOfferRestoreWaitPeriod + Duration(seconds: 1));
+      final future = store.sendMessage(
+        destination: streamDestination, content: 'content');
+      async.elapse(kSendMessageOfferRestoreWaitPeriod);
+      checkState().equals(OutboxMessageState.waitPeriodExpired);
+      checkNotified(count: 2);
+
+      // Wait till the [sendMessage] request succeeds.
+      await future;
+      checkState().equals(OutboxMessageState.waiting);
+      checkNotifiedOnce();
+
+      // Wait till we reach at least [kSendMessageOfferRestoreWaitPeriod] after
+      // returning to the waiting state.
+      async.elapse(kSendMessageOfferRestoreWaitPeriod);
+      async.flushTimers();
+      // The outbox message should stay in the waiting state;
+      // it should not transition to waitPeriodExpired.
+      checkState().equals(OutboxMessageState.waiting);
+      checkNotNotified();
+    }));
+
+    group('… -> failed', () {
+      test('hidden -> failed', () => awaitFakeAsync((async) async {
+        await prepareOutboxMessageToFailAfterDelay(Duration.zero);
+        checkState().equals(OutboxMessageState.hidden);
+        checkNotNotified();
+
+        await check(outboxMessageFailFuture).throws();
+        checkState().equals(OutboxMessageState.failed);
+        checkNotifiedOnce();
+
+        // Wait till we reach at least [kSendMessageOfferRestoreWaitPeriod] after
+        // the send request was initiated.
+        async.elapse(kSendMessageOfferRestoreWaitPeriod);
+        async.flushTimers();
+        // The outbox message should stay in the failed state;
+        // it should not transition to waitPeriodExpired.
+        checkState().equals(OutboxMessageState.failed);
+        checkNotNotified();
+      }));
+
+      test('waiting -> failed', () => awaitFakeAsync((async) async {
+        await prepareOutboxMessageToFailAfterDelay(
+          kLocalEchoDebounceDuration + Duration(seconds: 1));
+        async.elapse(kLocalEchoDebounceDuration);
+        checkState().equals(OutboxMessageState.waiting);
+        checkNotifiedOnce();
+
+        await check(outboxMessageFailFuture).throws();
+        checkState().equals(OutboxMessageState.failed);
+        checkNotifiedOnce();
+      }));
+
+      test('waitPeriodExpired -> failed', () => awaitFakeAsync((async) async {
+        await prepareOutboxMessageToFailAfterDelay(
+          kSendMessageOfferRestoreWaitPeriod + Duration(seconds: 1));
+        async.elapse(kSendMessageOfferRestoreWaitPeriod);
+        checkState().equals(OutboxMessageState.waitPeriodExpired);
+        checkNotified(count: 2);
+
+        await check(outboxMessageFailFuture).throws();
+        checkState().equals(OutboxMessageState.failed);
+        checkNotifiedOnce();
+      }));
+    });
+
+    group('… -> (delete)', () {
+      test('hidden -> (delete) because event received', () => awaitFakeAsync((async) async {
+        await prepareOutboxMessage();
+        checkState().equals(OutboxMessageState.hidden);
+        checkNotNotified();
+
+        await receiveMessage();
+        check(store.outboxMessages).isEmpty();
+        checkNotifiedOnce();
+      }));
+
+      test('hidden -> (delete) when event arrives before send request fails', () => awaitFakeAsync((async) async {
+        // Set up an error to fail `sendMessage` with a delay, leaving time for
+        // the message event to arrive.
+        await prepareOutboxMessageToFailAfterDelay(const Duration(seconds: 1));
+        checkState().equals(OutboxMessageState.hidden);
+        checkNotNotified();
+
+        // Received the message event while the message is being sent.
+        await receiveMessage();
+        check(store.outboxMessages).isEmpty();
+        checkNotifiedOnce();
+
+        // Complete the send request.  There should be no error despite
+        // the send request failure, because the outbox message is not
+        // in the store any more.
+        await check(outboxMessageFailFuture).completes();
+        async.elapse(const Duration(seconds: 1));
+        checkNotNotified();
+      }));
+
+      test('waiting -> (delete) because event received', () => awaitFakeAsync((async) async {
+        await prepareOutboxMessage();
+        async.elapse(kLocalEchoDebounceDuration);
+        checkState().equals(OutboxMessageState.waiting);
+        checkNotifiedOnce();
+
+        await receiveMessage();
+        check(store.outboxMessages).isEmpty();
+        checkNotifiedOnce();
+      }));
+
+      test('waiting -> (delete) when event arrives before send request fails', () => awaitFakeAsync((async) async {
+        // Set up an error to fail `sendMessage` with a delay, leaving time for
+        // the message event to arrive.
+        await prepareOutboxMessageToFailAfterDelay(
+          kLocalEchoDebounceDuration + Duration(seconds: 1));
+        async.elapse(kLocalEchoDebounceDuration);
+        checkState().equals(OutboxMessageState.waiting);
+        checkNotifiedOnce();
+
+        // Received the message event while the message is being sent.
+        await receiveMessage();
+        check(store.outboxMessages).isEmpty();
+        checkNotifiedOnce();
+
+        // Complete the send request.  There should be no error despite
+        // the send request failure, because the outbox message is not
+        // in the store any more.
+        await check(outboxMessageFailFuture).completes();
+        checkNotNotified();
+      }));
+
+      test('waitPeriodExpired -> (delete) when event arrives before send request fails', () => awaitFakeAsync((async) async {
+        // Set up an error to fail `sendMessage` with a delay, leaving time for
+        // the message event to arrive.
+        await prepareOutboxMessageToFailAfterDelay(
+          kSendMessageOfferRestoreWaitPeriod + Duration(seconds: 1));
+        async.elapse(kSendMessageOfferRestoreWaitPeriod);
+        checkState().equals(OutboxMessageState.waitPeriodExpired);
+        checkNotified(count: 2);
+
+        // Received the message event while the message is being sent.
+        await receiveMessage();
+        check(store.outboxMessages).isEmpty();
+        checkNotifiedOnce();
+
+        // Complete the send request.  There should be no error despite
+        // the send request failure, because the outbox message is not
+        // in the store any more.
+        await check(outboxMessageFailFuture).completes();
+        checkNotNotified();
+      }));
+
+      test('waitPeriodExpired -> (delete) because outbox message was taken', () => awaitFakeAsync((async) async {
+        // Set up an error to fail `sendMessage` with a delay, leaving time for
+        // the outbox message to be taken (by the user, presumably).
+        await prepareOutboxMessageToFailAfterDelay(
+          kSendMessageOfferRestoreWaitPeriod + Duration(seconds: 1));
+        async.elapse(kSendMessageOfferRestoreWaitPeriod);
+        checkState().equals(OutboxMessageState.waitPeriodExpired);
+        checkNotified(count: 2);
+
+        store.takeOutboxMessage(store.outboxMessages.keys.single);
+        check(store.outboxMessages).isEmpty();
+        checkNotifiedOnce();
+      }));
+
+      test('failed -> (delete) because event received', () => awaitFakeAsync((async) async {
+        await prepareOutboxMessageToFailAfterDelay(Duration.zero);
+        await check(outboxMessageFailFuture).throws();
+        checkState().equals(OutboxMessageState.failed);
+        checkNotifiedOnce();
+
+        await receiveMessage();
+        check(store.outboxMessages).isEmpty();
+        checkNotifiedOnce();
+      }));
+
+      test('failed -> (delete) because outbox message was taken', () => awaitFakeAsync((async) async {
+        await prepareOutboxMessageToFailAfterDelay(Duration.zero);
+        await check(outboxMessageFailFuture).throws();
+        checkState().equals(OutboxMessageState.failed);
+        checkNotifiedOnce();
+
+        store.takeOutboxMessage(store.outboxMessages.keys.single);
+        check(store.outboxMessages).isEmpty();
+        checkNotifiedOnce();
+      }));
+    });
+
+    test('when sending to "(no topic)", process topic like the server does when creating outbox message', () => awaitFakeAsync((async) async {
+      await prepareOutboxMessage(
+        destination: StreamDestination(stream.streamId, TopicName('(no topic)')),
+        zulipFeatureLevel: 370);
+      async.elapse(kLocalEchoDebounceDuration);
+      check(store.outboxMessages).values.single
+        .conversation.isA<StreamConversation>().topic.equals(eg.t(''));
+    }));
+
+    test('legacy: when sending to "(no topic)", process topic like the server does when creating outbox message', () => awaitFakeAsync((async) async {
+      await prepareOutboxMessage(
+        destination: StreamDestination(stream.streamId, TopicName('(no topic)')),
+        zulipFeatureLevel: 369);
+      async.elapse(kLocalEchoDebounceDuration);
+      check(store.outboxMessages).values.single
+        .conversation.isA<StreamConversation>().topic.equals(eg.t('(no topic)'));
+    }));
+
+    test('set timestamp to now when creating outbox messages', () => awaitFakeAsync(
+      initialTime: eg.timeInPast,
+      (async) async {
+        await prepareOutboxMessage();
+        check(store.outboxMessages).values.single
+          .timestamp.equals(eg.utcTimestamp(eg.timeInPast));
+      },
+    ));
+  });
+
+  test('takeOutboxMessage', () async {
+    final stream = eg.stream();
+    await prepare(stream: stream);
+    await prepareMessages([]);
+
+    for (int i = 0; i < 10; i++) {
+      connection.prepare(apiException: eg.apiBadRequest());
+      await check(store.sendMessage(
+        destination: StreamDestination(stream.streamId, eg.t('topic')),
+        content: 'content')).throws();
+      checkNotifiedOnce();
+    }
+
+    final localMessageIds = store.outboxMessages.keys.toList();
+    store.takeOutboxMessage(localMessageIds.removeAt(5));
+    check(store.outboxMessages).keys.deepEquals(localMessageIds);
+    checkNotifiedOnce();
+  });
 
   group('reconcileMessages', () {
     test('from empty', () async {
@@ -121,6 +518,295 @@ void main() {
       check(messages).single.identicalTo(message);
       check(store.messages).deepEquals({1: message});
     });
+  });
+
+  group('edit-message methods', () {
+    late StreamMessage message;
+    Future<void> prepareEditMessage() async {
+      await prepare();
+      message = eg.streamMessage();
+      await prepareMessages([message]);
+      check(connection.takeRequests()).length.equals(1); // message-list fetchInitial
+    }
+
+    void checkRequest(int messageId, {
+      required String prevContent,
+      required String content,
+    }) {
+      final prevContentSha256 = sha256.convert(utf8.encode(prevContent)).toString();
+      check(connection.takeRequests()).single.isA<http.Request>()
+        ..method.equals('PATCH')
+        ..url.path.equals('/api/v1/messages/$messageId')
+        ..bodyFields.deepEquals({
+          'prev_content_sha256': prevContentSha256,
+          'content': content,
+        });
+    }
+
+    test('smoke', () => awaitFakeAsync((async) async {
+      await prepareEditMessage();
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+
+      connection.prepare(
+        json: UpdateMessageResult().toJson(), delay: Duration(seconds: 1));
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'old content', newContent: 'new content');
+      checkRequest(message.id,
+        prevContent: 'old content',
+        content: 'new content');
+      checkNotifiedOnce();
+
+      async.elapse(Duration(milliseconds: 500));
+      // Mid-request
+      check(store.getEditMessageErrorStatus(message.id)).isNotNull().isFalse();
+
+      async.elapse(Duration(milliseconds: 500));
+      // Request has succeeded; event hasn't arrived
+      check(store.getEditMessageErrorStatus(message.id)).isNotNull().isFalse();
+      checkNotNotified();
+
+      await store.handleEvent(eg.updateMessageEditEvent(message));
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      checkNotifiedOnce();
+    }));
+
+    test('concurrent edits on different messages', () => awaitFakeAsync((async) async {
+      await prepareEditMessage();
+      final otherMessage = eg.streamMessage();
+      await store.addMessage(otherMessage);
+      checkNotifiedOnce();
+
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+
+      connection.prepare(
+        json: UpdateMessageResult().toJson(), delay: Duration(seconds: 1));
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'old content', newContent: 'new content');
+      checkRequest(message.id,
+        prevContent: 'old content',
+        content: 'new content');
+      checkNotifiedOnce();
+
+      async.elapse(Duration(milliseconds: 500));
+      // Mid-first request
+      check(store.getEditMessageErrorStatus(message.id)).isNotNull().isFalse();
+      check(store.getEditMessageErrorStatus(otherMessage.id)).isNull();
+      connection.prepare(
+        json: UpdateMessageResult().toJson(), delay: Duration(seconds: 1));
+      store.editMessage(messageId: otherMessage.id,
+        originalRawContent: 'other message old content', newContent: 'other message new content');
+      checkRequest(otherMessage.id,
+        prevContent: 'other message old content',
+        content: 'other message new content');
+      checkNotifiedOnce();
+
+      async.elapse(Duration(milliseconds: 500));
+      // First request has succeeded; event hasn't arrived
+      // Mid-second request
+      check(store.getEditMessageErrorStatus(message.id)).isNotNull().isFalse();
+      check(store.getEditMessageErrorStatus(otherMessage.id)).isNotNull().isFalse();
+      checkNotNotified();
+
+      // First event arrives
+      await store.handleEvent(eg.updateMessageEditEvent(message));
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      checkNotifiedOnce();
+
+      async.elapse(Duration(milliseconds: 500));
+      // Second request has succeeded; event hasn't arrived
+      check(store.getEditMessageErrorStatus(otherMessage.id)).isNotNull().isFalse();
+      checkNotNotified();
+
+      // Second event arrives
+      await store.handleEvent(eg.updateMessageEditEvent(otherMessage));
+      check(store.getEditMessageErrorStatus(otherMessage.id)).isNull();
+      checkNotifiedOnce();
+    }));
+
+    test('request fails', () => awaitFakeAsync((async) async {
+      await prepareEditMessage();
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+
+      connection.prepare(apiException: eg.apiBadRequest(), delay: Duration(seconds: 1));
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'old content', newContent: 'new content');
+      checkNotifiedOnce();
+      async.elapse(Duration(seconds: 1));
+      check(store.getEditMessageErrorStatus(message.id)).isNotNull().isTrue();
+      checkNotifiedOnce();
+    }));
+
+    test('request fails; take failed edit', () => awaitFakeAsync((async) async {
+      await prepareEditMessage();
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+
+      connection.prepare(apiException: eg.apiBadRequest(), delay: Duration(seconds: 1));
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'old content', newContent: 'new content');
+      checkNotifiedOnce();
+      async.elapse(Duration(seconds: 1));
+      check(store.getEditMessageErrorStatus(message.id)).isNotNull().isTrue();
+      checkNotifiedOnce();
+
+      check(store.takeFailedMessageEdit(message.id).newContent).equals('new content');
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      checkNotifiedOnce();
+    }));
+
+    test('takeFailedMessageEdit throws StateError when nothing to take', () => awaitFakeAsync((async) async {
+      await prepareEditMessage();
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      check(() => store.takeFailedMessageEdit(message.id)).throws<StateError>();
+    }));
+
+    test('editMessage throws StateError if editMessage already in progress for same message', () => awaitFakeAsync((async) async {
+      await prepareEditMessage();
+
+      connection.prepare(
+        json: UpdateMessageResult().toJson(), delay: Duration(seconds: 1));
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'old content', newContent: 'new content');
+      async.elapse(Duration(milliseconds: 500));
+      check(connection.takeRequests()).length.equals(1);
+      checkNotifiedOnce();
+
+      await check(store.editMessage(messageId: message.id,
+          originalRawContent: 'old content', newContent: 'newer content'))
+        .isA<Future<void>>().throws<StateError>();
+      check(connection.takeRequests()).isEmpty();
+    }));
+
+    test('event arrives, then request fails', () => awaitFakeAsync((async) async {
+      // This can happen with network issues.
+
+      await prepareEditMessage();
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+
+      connection.prepare(
+        httpException: const SocketException('failed'), delay: Duration(seconds: 1));
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'old content', newContent: 'new content');
+      checkNotifiedOnce();
+
+      async.elapse(Duration(milliseconds: 500));
+      await store.handleEvent(eg.updateMessageEditEvent(message));
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      checkNotifiedOnce();
+
+      async.flushTimers();
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      checkNotNotified();
+    }));
+
+    test('request fails, then event arrives', () => awaitFakeAsync((async) async {
+      // This can happen with network issues.
+
+      await prepareEditMessage();
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+
+      connection.prepare(
+        httpException: const SocketException('failed'), delay: Duration(seconds: 1));
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'old content', newContent: 'new content');
+      checkNotifiedOnce();
+
+      async.elapse(Duration(seconds: 1));
+      check(store.getEditMessageErrorStatus(message.id)).isNotNull().isTrue();
+      checkNotifiedOnce();
+
+      await store.handleEvent(eg.updateMessageEditEvent(message));
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      checkNotifiedOnce();
+    }));
+
+    test('request fails, then event arrives; take failed edit in between', () => awaitFakeAsync((async) async {
+      // This can happen with network issues.
+
+      await prepareEditMessage();
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+
+      connection.prepare(
+        httpException: const SocketException('failed'), delay: Duration(seconds: 1));
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'old content', newContent: 'new content');
+      checkNotifiedOnce();
+
+      async.elapse(Duration(seconds: 1));
+      check(store.getEditMessageErrorStatus(message.id)).isNotNull().isTrue();
+      checkNotifiedOnce();
+      check(store.takeFailedMessageEdit(message.id).newContent).equals('new content');
+      checkNotifiedOnce();
+
+      await store.handleEvent(eg.updateMessageEditEvent(message)); // no error
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      checkNotifiedOnce(); // content updated
+    }));
+
+    test('request fails, then message deleted', () => awaitFakeAsync((async) async {
+      await prepareEditMessage();
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+
+      connection.prepare(apiException: eg.apiBadRequest(), delay: Duration(seconds: 1));
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'old content', newContent: 'new content');
+      checkNotifiedOnce();
+      async.elapse(Duration(seconds: 1));
+      check(store.getEditMessageErrorStatus(message.id)).isNotNull().isTrue();
+      checkNotifiedOnce();
+
+      await store.handleEvent(eg.deleteMessageEvent([message])); // no error
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      checkNotifiedOnce();
+    }));
+
+    test('message deleted while request in progress; we get failure response', () => awaitFakeAsync((async) async {
+      await prepareEditMessage();
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+
+      connection.prepare(apiException: eg.apiBadRequest(), delay: Duration(seconds: 1));
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'old content', newContent: 'new content');
+      checkNotifiedOnce();
+
+      async.elapse(Duration(milliseconds: 500));
+      // Mid-request
+      check(store.getEditMessageErrorStatus(message.id)).isNotNull().isFalse();
+      checkNotNotified();
+
+      await store.handleEvent(eg.deleteMessageEvent([message]));
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      checkNotifiedOnce();
+
+      async.elapse(Duration(milliseconds: 500));
+      // Request failure, but status has already been cleared
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      checkNotNotified();
+    }));
+
+    test('message deleted while request in progress but we get success response', () => awaitFakeAsync((async) async {
+      await prepareEditMessage();
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+
+      connection.prepare(
+        json: UpdateMessageResult().toJson(), delay: Duration(seconds: 1));
+      store.editMessage(messageId: message.id,
+        originalRawContent: 'old content', newContent: 'new content');
+      checkNotifiedOnce();
+
+      async.elapse(Duration(milliseconds: 500));
+      // Mid-request
+      check(store.getEditMessageErrorStatus(message.id)).isNotNull().isFalse();
+      checkNotNotified();
+
+      await store.handleEvent(eg.deleteMessageEvent([message]));
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      checkNotifiedOnce();
+
+      async.elapse(Duration(milliseconds: 500));
+      // Request success
+      check(store.getEditMessageErrorStatus(message.id)).isNull();
+      checkNotNotified();
+    }));
   });
 
   group('handleMessageEvent', () {

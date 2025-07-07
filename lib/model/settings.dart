@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../generated/l10n/zulip_localizations.dart';
 import 'binding.dart';
 import 'database.dart';
+import 'narrow.dart';
 import 'store.dart';
 
 /// The user's choice of visual theme for the app.
@@ -45,6 +46,65 @@ enum BrowserPreference {
   external,
 }
 
+/// The user's choice of when to open a message list at their first unread,
+/// rather than at the newest message.
+///
+/// This setting has no effect when navigating to a specific message:
+/// in that case the message list opens at that message,
+/// regardless of this setting.
+enum VisitFirstUnreadSetting {
+  /// Always go to the first unread, rather than the newest message.
+  always,
+
+  /// Go to the first unread in conversations,
+  /// and the newest in interleaved views.
+  conversations,
+
+  /// Always go to the newest message, rather than the first unread.
+  never;
+
+  /// The effective value of this setting if the user hasn't set it.
+  static VisitFirstUnreadSetting _default = conversations;
+}
+
+/// The user's choice of which message-list views should
+/// automatically mark messages as read when scrolling through them.
+///
+/// This can be overridden by local state: for example, if you've just tapped
+/// "Mark as unread from here" the view will stop marking as read automatically,
+/// regardless of this setting.
+enum MarkReadOnScrollSetting {
+  /// All views.
+  always,
+
+  /// Only conversation views.
+  conversations,
+
+  /// No views.
+  never;
+
+  /// The effective value of this setting if the user hasn't set it.
+  static MarkReadOnScrollSetting _default = conversations;
+}
+
+/// The outcome, or in-progress status, of migrating data from the legacy app.
+enum LegacyUpgradeState {
+  /// It's not yet known whether there was data from the legacy app.
+  unknown,
+
+  /// No legacy data was found.
+  noLegacy,
+
+  /// Legacy data was found, but not yet migrated into this app's database.
+  found,
+
+  /// Legacy data was found and migrated.
+  migrated,
+  ;
+
+  static LegacyUpgradeState _default = unknown;
+}
+
 /// A general category of account-independent setting the user might set.
 ///
 /// Different kinds of settings call for different treatment in the UI,
@@ -58,6 +118,9 @@ enum GlobalSettingType {
   /// (so that it stands ready to accept a future feature flag),
   /// we give it a placeholder value which isn't a real setting.
   placeholder,
+
+  /// Describes a pseudo-setting not directly exposed in the UI.
+  internal,
 
   /// Describes a setting which enables an in-progress feature of the app.
   ///
@@ -110,6 +173,10 @@ enum BoolGlobalSetting {
   /// (Having one stable value in this enum is also handy for tests.)
   placeholderIgnore(GlobalSettingType.placeholder, false),
 
+  /// A pseudo-setting recording whether the user has been shown the
+  /// welcome dialog for upgrading from the legacy app.
+  upgradeWelcomeDialogShown(GlobalSettingType.internal, false),
+
   /// An experimental flag to toggle rendering KaTeX content in messages.
   renderKatex(GlobalSettingType.experimentalFeatureFlag, false),
 
@@ -119,7 +186,7 @@ enum BoolGlobalSetting {
 
   // Former settings which might exist in the database,
   // whose names should therefore not be reused:
-  // (this list is empty so far)
+  //   openFirstUnread  // v0.0.30
   ;
 
   const BoolGlobalSetting(this.type, this.default_);
@@ -226,6 +293,67 @@ class GlobalSettingsStore extends ChangeNotifier {
       case BrowserPreference.external:
         return UrlLaunchMode.externalApplication;
     }
+  }
+
+  /// The user's choice of [VisitFirstUnreadSetting], applying our default.
+  ///
+  /// See also [shouldVisitFirstUnread] and [setVisitFirstUnread].
+  VisitFirstUnreadSetting get visitFirstUnread {
+    return _data.visitFirstUnread ?? VisitFirstUnreadSetting._default;
+  }
+
+  /// Set [visitFirstUnread], persistently for future runs of the app.
+  Future<void> setVisitFirstUnread(VisitFirstUnreadSetting value) async {
+    await _update(GlobalSettingsCompanion(visitFirstUnread: Value(value)));
+  }
+
+  /// The value that [visitFirstUnread] works out to for the given narrow.
+  bool shouldVisitFirstUnread({required Narrow narrow}) {
+    return switch (visitFirstUnread) {
+      VisitFirstUnreadSetting.always => true,
+      VisitFirstUnreadSetting.never => false,
+      VisitFirstUnreadSetting.conversations => switch (narrow) {
+        TopicNarrow() || DmNarrow()
+          => true,
+        CombinedFeedNarrow() || ChannelNarrow()
+        || MentionsNarrow() || StarredMessagesNarrow()
+        || KeywordSearchNarrow()
+          => false,
+      },
+    };
+  }
+
+  /// The user's choice of [MarkReadOnScrollSetting], applying our default.
+  ///
+  /// See also [markReadOnScrollForNarrow] and [setMarkReadOnScroll].
+  MarkReadOnScrollSetting get markReadOnScroll {
+    return _data.markReadOnScroll ?? MarkReadOnScrollSetting._default;
+  }
+
+  /// Set [markReadOnScroll], persistently for future runs of the app.
+  Future<void> setMarkReadOnScroll(MarkReadOnScrollSetting value) async {
+    await _update(GlobalSettingsCompanion(markReadOnScroll: Value(value)));
+  }
+
+  /// The value that [markReadOnScroll] works out to for the given narrow.
+  bool markReadOnScrollForNarrow(Narrow narrow) {
+    return switch (markReadOnScroll) {
+      MarkReadOnScrollSetting.always => true,
+      MarkReadOnScrollSetting.never => false,
+      MarkReadOnScrollSetting.conversations => switch (narrow) {
+        TopicNarrow() || DmNarrow()
+          => true,
+        CombinedFeedNarrow() || ChannelNarrow()
+        || MentionsNarrow() || StarredMessagesNarrow()
+        || KeywordSearchNarrow()
+          => false,
+      },
+    };
+  }
+
+  /// The outcome, or in-progress status, of migrating data from the legacy app.
+  LegacyUpgradeState get legacyUpgradeState {
+    return _data.legacyUpgradeState ?? LegacyUpgradeState._default;
   }
 
   /// The user's choice of the given bool-valued setting, or our default for it.

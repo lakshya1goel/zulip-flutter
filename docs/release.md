@@ -1,19 +1,37 @@
 # Making releases
 
+## NOTE: This document is out of date.
+
+Now that this is the main Zulip mobile app, the actual release process
+is roughly a hybrid of the steps below for building the app,
+then the steps from the legacy app's release instructions for
+distributing the app.
+
+Revising this into a single coherent set of instructions
+is an open TODO.
+
+
 ## Prepare source tree
 
 * If we haven't recently (like in the last week) upgraded our
   Flutter and packages dependencies, do that first.
   For details of how, see our README.
 
-* Update translations from Weblate.
-  See `git log --stat --grep eblate` for previous examples.
+* Update translations from Weblate:
+  * Run the [GitHub action][weblate-github-action] to create a PR
+    (or update an existing bot PR) with translation updates.
+  * CI doesn't run on the bot's PRs.  So if you suspect the PR might
+    break anything (e.g. if this is the first sync since changing
+    something in our Weblate setup), run `tools/check` on it yourself.
+  * Merge the PR.
 
 * Write an entry in `docs/changelog.md`, under "Unreleased".
   Commit that change.
 
 * Run `tools/bump-version` to update the version number.
   Inspect the resulting commit and tag, and push.
+
+[weblate-github-action]: https://github.com/zulip/zulip-flutter/actions/workflows/update-translations.yml
 
 
 ## Build and upload alpha: Android
@@ -144,6 +162,38 @@
 
   In particular, for each fixed issue 123, do a Zulip search for
   "f123".  This efficiently finds any threads that mentioned "#F123".
+
+
+## Preview releases
+
+Sometimes we make a release that includes some experimental changes
+not yet merged to the `main` branch, i.e. a "preview release".
+
+Steps specific to this type of release are:
+
+* To prepare the tree, start from main and use commands like
+  `git merge --no-ff pr/123456` to merge together the desired PRs.
+
+  The use of `--no-ff` ensures that each such step creates an actual
+  merge commit.  This is helpful because it means that a command like
+  `git log --first-parent --oneline origin..`
+  can print a list of exactly which PRs were included, by number.
+  That record is useful for understanding the relationship between
+  releases, and for re-creating a similar branch with updated versions
+  of the same PRs.
+
+* The changelog should distinguish, outside the "for users" section,
+  between changes in main and changes not yet in main.
+  See past examples; search for "experimental".
+
+* After the new release is uploaded, the changelog and version number
+  in main should be updated to match the new release.
+
+  Try `git checkout -p v12.34.567 docs/changelog.md pubspec.yaml`.
+  Use the `-p` prompt to skip any other pubspec updates, such as
+  dependencies.  Then
+  `git commit -am "version: Sync version and changelog from v12.34.567 release"`
+  (with the correct version number), and push.
 
 
 ## One-time or annual setup

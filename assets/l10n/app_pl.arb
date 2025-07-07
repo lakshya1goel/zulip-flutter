@@ -53,10 +53,6 @@
   "@actionSheetOptionShare": {
     "description": "Label for share button on action sheet."
   },
-  "actionSheetOptionQuoteAndReply": "Odpowiedz cytując",
-  "@actionSheetOptionQuoteAndReply": {
-    "description": "Label for Quote and reply button on action sheet."
-  },
   "actionSheetOptionStarMessage": "Oznacz gwiazdką",
   "@actionSheetOptionStarMessage": {
     "description": "Label for star button on action sheet."
@@ -73,7 +69,7 @@
   "@actionSheetOptionMarkAsUnread": {
     "description": "Label for mark as unread button on action sheet."
   },
-  "logOutConfirmationDialogMessage": "Aby użyć tego konta należy wypełnić URL organizacji oraz dane konta.",
+  "logOutConfirmationDialogMessage": "Aby użyć tego konta należy wskazać URL organizacji oraz dane konta.",
   "@logOutConfirmationDialogMessage": {
     "description": "Message for a confirmation dialog for logging out."
   },
@@ -107,7 +103,7 @@
       }
     }
   },
-  "errorCouldNotFetchMessageSource": "Nie można uzyskać źródłowej wiadomości",
+  "errorCouldNotFetchMessageSource": "Nie można uzyskać źródłowej wiadomości.",
   "@errorCouldNotFetchMessageSource": {
     "description": "Error message when the source of a message could not be fetched."
   },
@@ -377,11 +373,11 @@
   "@topicValidationErrorMandatoryButEmpty": {
     "description": "Topic validation error when topic is required but was empty."
   },
-  "errorInvalidResponse": "Nieprawidłowa odpowiedź serwera",
+  "errorInvalidResponse": "Nieprawidłowa odpowiedź serwera.",
   "@errorInvalidResponse": {
     "description": "Error message when an API call returned an invalid response."
   },
-  "errorVideoPlayerFailed": "Nie da rady odtworzyć wideo",
+  "errorVideoPlayerFailed": "Nie da rady odtworzyć wideo.",
   "@errorVideoPlayerFailed": {
     "description": "Error message when a video fails to play."
   },
@@ -557,10 +553,6 @@
   "@errorNotificationOpenTitle": {
     "description": "Error title when notification opening fails"
   },
-  "errorNotificationOpenAccountMissing": "Konto związane z tym powiadomieniem już nie istnieje.",
-  "@errorNotificationOpenAccountMissing": {
-    "description": "Error message when the account associated with the notification is not found"
-  },
   "aboutPageOpenSourceLicenses": "Licencje otwartego źródła",
   "@aboutPageOpenSourceLicenses": {
     "description": "Item title in About Zulip page to navigate to Licenses page"
@@ -703,7 +695,7 @@
       "example": "http://chat.example.com/"
     }
   },
-  "tryAnotherAccountButton": "Sprawdź inne konto",
+  "tryAnotherAccountButton": "Użyj innego konta",
   "@tryAnotherAccountButton": {
     "description": "Label for loading screen button prompting user to try another account."
   },
@@ -871,10 +863,6 @@
   "@pinnedSubscriptionsLabel": {
     "description": "Label for the list of pinned subscribed channels."
   },
-  "subscriptionListNoChannels": "Nie odnaleziono kanałów",
-  "@subscriptionListNoChannels": {
-    "description": "Text to display on subscribed-channels page when there are no subscribed channels."
-  },
   "unknownChannelName": "(nieznany kanał)",
   "@unknownChannelName": {
     "description": "Replacement name for channel when it cannot be found in the store."
@@ -1006,5 +994,223 @@
         "example": "4.0"
       }
     }
+  },
+  "composeBoxEnterTopicOrSkipHintText": "Wpisz tytuł wątku (pomiń aby uzyskać “{defaultTopicName}”)",
+  "@composeBoxEnterTopicOrSkipHintText": {
+    "description": "Hint text for topic input widget in compose box when topics are optional.",
+    "placeholders": {
+      "defaultTopicName": {
+        "type": "String",
+        "example": "general chat"
+      }
+    }
+  },
+  "actionSheetOptionEditMessage": "Zmień wiadomość",
+  "@actionSheetOptionEditMessage": {
+    "description": "Label for the 'Edit message' button in the message action sheet."
+  },
+  "errorMessageEditNotSaved": "Nie zapisano wiadomości",
+  "@errorMessageEditNotSaved": {
+    "description": "Error message for compose box when a message edit could not be saved."
+  },
+  "errorCouldNotEditMessageTitle": "Nie można zmienić wiadomości",
+  "@errorCouldNotEditMessageTitle": {
+    "description": "Error title when an exception prevented us from opening the compose box for editing a message."
+  },
+  "composeBoxBannerLabelEditMessage": "Zmień wiadomość",
+  "@composeBoxBannerLabelEditMessage": {
+    "description": "Label text for the compose-box banner when you are editing a message."
+  },
+  "editAlreadyInProgressMessage": "Operacja zmiany w toku. Zaczekaj na jej zakończenie.",
+  "@editAlreadyInProgressMessage": {
+    "description": "Error message when a message edit cannot be saved because there is another edit already in progress."
+  },
+  "savingMessageEditLabel": "ZAPIS ZMIANY…",
+  "@savingMessageEditLabel": {
+    "description": "Text on a message in the message list saying that a message edit request is processing. (Use ALL CAPS for cased alphabets: Latin, Greek, Cyrillic, etc.)"
+  },
+  "savingMessageEditFailedLabel": "NIE ZAPISANO ZMIANY",
+  "@savingMessageEditFailedLabel": {
+    "description": "Text on a message in the message list saying that a message edit request failed. (Use ALL CAPS for cased alphabets: Latin, Greek, Cyrillic, etc.)"
+  },
+  "discardDraftConfirmationDialogTitle": "Czy chcesz przerwać szykowanie wpisu?",
+  "@discardDraftConfirmationDialogTitle": {
+    "description": "Title for a confirmation dialog for discarding message text that was typed into the compose box."
+  },
+  "discardDraftForEditConfirmationDialogMessage": "Miej na uwadze, że przechodząc do zmiany wiadomości wyczyścisz okno nowej wiadomości.",
+  "@discardDraftForEditConfirmationDialogMessage": {
+    "description": "Message for a confirmation dialog for discarding message text that was typed into the compose box, when editing a message."
+  },
+  "discardDraftConfirmationDialogConfirmButton": "Odrzuć",
+  "@discardDraftConfirmationDialogConfirmButton": {
+    "description": "Label for the 'Discard' button on a confirmation dialog for discarding message text that was typed into the compose box."
+  },
+  "composeBoxBannerButtonCancel": "Anuluj",
+  "@composeBoxBannerButtonCancel": {
+    "description": "Label text for the 'Cancel' button in the compose-box banner when you are editing a message."
+  },
+  "preparingEditMessageContentInput": "Przygotowywanie…",
+  "@preparingEditMessageContentInput": {
+    "description": "Hint text for content input when the compose box is preparing to edit a message."
+  },
+  "editAlreadyInProgressTitle": "Nie udało się zapisać zmiany",
+  "@editAlreadyInProgressTitle": {
+    "description": "Error title when a message edit cannot be saved because there is another edit already in progress."
+  },
+  "composeBoxBannerButtonSave": "Zapisz",
+  "@composeBoxBannerButtonSave": {
+    "description": "Label text for the 'Save' button in the compose-box banner when you are editing a message."
+  },
+  "topicsButtonLabel": "WĄTKI",
+  "@topicsButtonLabel": {
+    "description": "Label for message list button leading to topic-list page. (Use ALL CAPS for cased alphabets: Latin, Greek, Cyrillic, etc.)"
+  },
+  "actionSheetOptionListOfTopics": "Lista wątków",
+  "@actionSheetOptionListOfTopics": {
+    "description": "Label for navigating to a channel's topic-list page."
+  },
+  "newDmSheetScreenTitle": "Nowa DM",
+  "@newDmSheetScreenTitle": {
+    "description": "Title displayed at the top of the new DM screen."
+  },
+  "newDmFabButtonLabel": "Nowa DM",
+  "@newDmFabButtonLabel": {
+    "description": "Label for the floating action button (FAB) that opens the new DM sheet."
+  },
+  "newDmSheetSearchHintSomeSelected": "Dodaj kolejnego użytkownika…",
+  "@newDmSheetSearchHintSomeSelected": {
+    "description": "Hint text for the search bar when at least one user is selected"
+  },
+  "mutedUser": "Wyciszony użytkownik",
+  "@mutedUser": {
+    "description": "Name for a muted user to display all over the app."
+  },
+  "newDmSheetNoUsersFound": "Nie odnaleziono użytkowników",
+  "@newDmSheetNoUsersFound": {
+    "description": "Message shown in the new DM sheet when no users match the search."
+  },
+  "actionSheetOptionHideMutedMessage": "Ukryj ponownie wyciszone wiadomości",
+  "@actionSheetOptionHideMutedMessage": {
+    "description": "Label for hide muted message again button on action sheet."
+  },
+  "newDmSheetSearchHintEmpty": "Dodaj jednego lub więcej użytkowników",
+  "@newDmSheetSearchHintEmpty": {
+    "description": "Hint text for the search bar when no users are selected"
+  },
+  "messageNotSentLabel": "NIE WYSŁANO WIADOMOŚCI",
+  "@messageNotSentLabel": {
+    "description": "Text on a message in the message list saying that a send message request failed. (Use ALL CAPS for cased alphabets: Latin, Greek, Cyrillic, etc.)"
+  },
+  "errorNotificationOpenAccountNotFound": "Nie odnaleziono konta powiązanego z tym powiadomieniem.",
+  "@errorNotificationOpenAccountNotFound": {
+    "description": "Error message when the account associated with the notification could not be found"
+  },
+  "newDmSheetComposeButtonLabel": "Utwórz",
+  "@newDmSheetComposeButtonLabel": {
+    "description": "Label for the compose button in the new DM sheet that starts composing a message to the selected users."
+  },
+  "inboxEmptyPlaceholder": "Obecnie brak nowych wiadomości. Skorzystaj z przycisków u dołu ekranu aby przejść do widoku mieszanego lub listy kanałów.",
+  "@inboxEmptyPlaceholder": {
+    "description": "Centered text on the 'Inbox' page saying that there is no content to show."
+  },
+  "recentDmConversationsEmptyPlaceholder": "Brak wiadomości w archiwum! Może warto rozpocząć dyskusję?",
+  "@recentDmConversationsEmptyPlaceholder": {
+    "description": "Centered text on the 'Direct messages' page saying that there is no content to show."
+  },
+  "channelsEmptyPlaceholder": "Nie śledzisz żadnego z kanałów.",
+  "@channelsEmptyPlaceholder": {
+    "description": "Centered text on the 'Channels' page saying that there is no content to show."
+  },
+  "initialAnchorSettingDescription": "Możesz wybrać czy bardziej odpowiada Ci odczyt nieprzeczytanych lub najnowszych wiadomości.",
+  "@initialAnchorSettingDescription": {
+    "description": "Description of setting controlling initial anchor of message list."
+  },
+  "initialAnchorSettingFirstUnreadAlways": "Pierwsza nieprzeczytana wiadomość",
+  "@initialAnchorSettingFirstUnreadAlways": {
+    "description": "Label for a value of setting controlling initial anchor of message list."
+  },
+  "initialAnchorSettingTitle": "Pokaż wiadomości w porządku",
+  "@initialAnchorSettingTitle": {
+    "description": "Title of setting controlling initial anchor of message list."
+  },
+  "discardDraftForOutboxConfirmationDialogMessage": "Przywracając wiadomość, która nie została wysłana, wyczyścisz zawartość kreatora nowej.",
+  "@discardDraftForOutboxConfirmationDialogMessage": {
+    "description": "Message for a confirmation dialog when restoring an outbox message, for discarding message text that was typed into the compose box."
+  },
+  "initialAnchorSettingFirstUnreadConversations": "Pierwsza nieprzeczytana wiadomość w widoku dyskusji, wszędzie indziej najnowsza wiadomość",
+  "@initialAnchorSettingFirstUnreadConversations": {
+    "description": "Label for a value of setting controlling initial anchor of message list."
+  },
+  "initialAnchorSettingNewestAlways": "Najnowsza wiadomość",
+  "@initialAnchorSettingNewestAlways": {
+    "description": "Label for a value of setting controlling initial anchor of message list."
+  },
+  "actionSheetOptionQuoteMessage": "Cytuj wiadomość",
+  "@actionSheetOptionQuoteMessage": {
+    "description": "Label for the 'Quote message' button in the message action sheet."
+  },
+  "markReadOnScrollSettingTitle": "Oznacz wiadomości jako przeczytane przy przwijaniu",
+  "@markReadOnScrollSettingTitle": {
+    "description": "Title of setting controlling which message-list views should mark read on scroll."
+  },
+  "markReadOnScrollSettingAlways": "Zawsze",
+  "@markReadOnScrollSettingAlways": {
+    "description": "Label for a value of setting controlling which message-list views should mark read on scroll."
+  },
+  "markReadOnScrollSettingConversations": "Tylko w widoku dyskusji",
+  "@markReadOnScrollSettingConversations": {
+    "description": "Label for a value of setting controlling which message-list views should mark read on scroll."
+  },
+  "markReadOnScrollSettingNever": "Nigdy",
+  "@markReadOnScrollSettingNever": {
+    "description": "Label for a value of setting controlling which message-list views should mark read on scroll."
+  },
+  "markReadOnScrollSettingDescription": "Czy chcesz z automatu oznaczać wiadomości jako przeczytane przy przewijaniu?",
+  "@markReadOnScrollSettingDescription": {
+    "description": "Description of setting controlling which message-list views should mark read on scroll."
+  },
+  "markReadOnScrollSettingConversationsDescription": "Wiadomości zostaną z automatu oznaczone jako przeczytane tylko w pojedyczym wątku lub w wymianie wiadomości bezpośrednich.",
+  "@markReadOnScrollSettingConversationsDescription": {
+    "description": "Description for a value of setting controlling which message-list views should mark read on scroll."
+  },
+  "upgradeWelcomeDialogTitle": "Witaj w nowej apce Zulip!",
+  "@upgradeWelcomeDialogTitle": {
+    "description": "Title for dialog shown on first upgrade from the legacy Zulip app."
+  },
+  "upgradeWelcomeDialogMessage": "Napotkasz na znane rozwiązania, które upakowaliśmy w szybszy i elegancki pakiet.",
+  "@upgradeWelcomeDialogMessage": {
+    "description": "Message text for dialog shown on first upgrade from the legacy Zulip app."
+  },
+  "upgradeWelcomeDialogLinkText": "Sprawdź blog pod kątem obwieszczenia!",
+  "@upgradeWelcomeDialogLinkText": {
+    "description": "Text of link in dialog shown on first upgrade from the legacy Zulip app."
+  },
+  "upgradeWelcomeDialogDismiss": "Zaczynajmy",
+  "@upgradeWelcomeDialogDismiss": {
+    "description": "Label for button dismissing dialog shown on first upgrade from the legacy Zulip app."
+  },
+  "emptyMessageList": "Póki co brak wiadomości.",
+  "@emptyMessageList": {
+    "description": "Placeholder for some message-list pages when there are no messages."
+  },
+  "revealButtonLabel": "Odsłoń wiadomość",
+  "@revealButtonLabel": {
+    "description": "Label for the button revealing hidden message from a muted sender in message list."
+  },
+  "emptyMessageListSearch": "Brak wyników wyszukiwania.",
+  "@emptyMessageListSearch": {
+    "description": "Placeholder for the 'Search' page when there are no messages."
+  },
+  "searchMessagesPageTitle": "Szukaj",
+  "@searchMessagesPageTitle": {
+    "description": "Page title for the 'Search' message view."
+  },
+  "searchMessagesHintText": "Szukaj",
+  "@searchMessagesHintText": {
+    "description": "Hint text for the message search text field."
+  },
+  "searchMessagesClearButtonTooltip": "Wyczyść",
+  "@searchMessagesClearButtonTooltip": {
+    "description": "Tooltip for the 'x' button in the search text field."
   }
 }

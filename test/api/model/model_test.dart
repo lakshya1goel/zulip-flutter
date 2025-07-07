@@ -93,13 +93,6 @@ void main() {
         .topic.equals(const TopicName('hello'));
     });
 
-    test('match_subject -> matchTopic', () {
-      check(baseStreamJson()).not((it) => it.containsKey('match_topic'));
-      check(Message.fromJson(baseStreamJson()
-        ..['match_subject'] = 'yo'
-      )).matchTopic.equals('yo');
-    });
-
     test('no crash on unrecognized flag', () {
       final m1 = Message.fromJson(
         (deepToJson(eg.streamMessage()) as Map<String, dynamic>)
@@ -160,6 +153,31 @@ void main() {
       doCheck(eg.t('✔ Some Topic'), eg.t('sOME tOPIC'),   false);
 
       doCheck(eg.t('✔ a'),          eg.t('✔ b'),          false);
+    });
+
+    test('processLikeServer', () {
+      final emptyTopicDisplayName = eg.defaultRealmEmptyTopicDisplayName;
+      void doCheck(TopicName topic, TopicName expected, int zulipFeatureLevel) {
+        check(topic.processLikeServer(
+          zulipFeatureLevel: zulipFeatureLevel,
+          realmEmptyTopicDisplayName: emptyTopicDisplayName),
+        ).equals(expected);
+      }
+
+      check(() => eg.t('').processLikeServer(
+        zulipFeatureLevel: 333,
+        realmEmptyTopicDisplayName: emptyTopicDisplayName),
+      ).throws<void>();
+      doCheck(eg.t('(no topic)'),          eg.t('(no topic)'),          333);
+      doCheck(eg.t(emptyTopicDisplayName), eg.t(emptyTopicDisplayName), 333);
+      doCheck(eg.t('other topic'),         eg.t('other topic'),         333);
+
+      doCheck(eg.t(''),                    eg.t(''),                    334);
+      doCheck(eg.t('(no topic)'),          eg.t('(no topic)'),          334);
+      doCheck(eg.t(emptyTopicDisplayName), eg.t(''),                    334);
+      doCheck(eg.t('other topic'),         eg.t('other topic'),         334);
+
+      doCheck(eg.t('(no topic)'),          eg.t(''),                    370);
     });
   });
 

@@ -75,10 +75,6 @@
   "@actionSheetOptionShare": {
     "description": "Label for share button on action sheet."
   },
-  "actionSheetOptionQuoteAndReply": "Ответить с цитированием",
-  "@actionSheetOptionQuoteAndReply": {
-    "description": "Label for Quote and reply button on action sheet."
-  },
   "actionSheetOptionStarMessage": "Отметить сообщение",
   "@actionSheetOptionStarMessage": {
     "description": "Label for star button on action sheet."
@@ -113,7 +109,7 @@
       }
     }
   },
-  "errorCouldNotFetchMessageSource": "Не удалось извлечь источник сообщения",
+  "errorCouldNotFetchMessageSource": "Не удалось извлечь источник сообщения.",
   "@errorCouldNotFetchMessageSource": {
     "description": "Error message when the source of a message could not be fetched."
   },
@@ -287,10 +283,6 @@
   "@errorNotificationOpenTitle": {
     "description": "Error title when notification opening fails"
   },
-  "errorNotificationOpenAccountMissing": "Учетной записи, связанной с этим оповещением, больше нет.",
-  "@errorNotificationOpenAccountMissing": {
-    "description": "Error message when the account associated with the notification is not found"
-  },
   "switchAccountButton": "Сменить учетную запись",
   "@switchAccountButton": {
     "description": "Label for main-menu button leading to the choose-account page."
@@ -393,7 +385,7 @@
   "@serverUrlValidationErrorNoUseEmail": {
     "description": "Error message when URL looks like an email"
   },
-  "errorVideoPlayerFailed": "Не удается воспроизвести видео",
+  "errorVideoPlayerFailed": "Не удается воспроизвести видео.",
   "@errorVideoPlayerFailed": {
     "description": "Error message when a video fails to play."
   },
@@ -525,7 +517,7 @@
   "@successMessageTextCopied": {
     "description": "Message when content of a message was copied to the user's system clipboard."
   },
-  "errorInvalidResponse": "Получен недопустимый ответ сервера",
+  "errorInvalidResponse": "Сервер отправил недопустимый ответ.",
   "@errorInvalidResponse": {
     "description": "Error message when an API call returned an invalid response."
   },
@@ -803,10 +795,6 @@
   "@unpinnedSubscriptionsLabel": {
     "description": "Label for the list of unpinned subscribed channels."
   },
-  "subscriptionListNoChannels": "Каналы не найдены",
-  "@subscriptionListNoChannels": {
-    "description": "Text to display on subscribed-channels page when there are no subscribed channels."
-  },
   "wildcardMentionAll": "все",
   "@wildcardMentionAll": {
     "description": "Text for \"@all\" wildcard-mention autocomplete option when writing a channel or DM message."
@@ -1006,5 +994,223 @@
   "experimentalFeatureSettingsWarning": "Эти параметры включают функции, которые все еще находятся в стадии разработки и не готовы. Они могут не работать и вызывать проблемы в других местах приложения.\n\nЦель этих настроек — экспериментирование людьми, работающими над разработкой Zulip.",
   "@experimentalFeatureSettingsWarning": {
     "description": "Warning text on settings page for experimental, in-development features"
+  },
+  "errorCouldNotEditMessageTitle": "Сбой редактирования",
+  "@errorCouldNotEditMessageTitle": {
+    "description": "Error title when an exception prevented us from opening the compose box for editing a message."
+  },
+  "composeBoxBannerButtonSave": "Сохранить",
+  "@composeBoxBannerButtonSave": {
+    "description": "Label text for the 'Save' button in the compose-box banner when you are editing a message."
+  },
+  "editAlreadyInProgressTitle": "Редактирование недоступно",
+  "@editAlreadyInProgressTitle": {
+    "description": "Error title when a message edit cannot be saved because there is another edit already in progress."
+  },
+  "savingMessageEditLabel": "ЗАПИСЬ ПРАВОК…",
+  "@savingMessageEditLabel": {
+    "description": "Text on a message in the message list saying that a message edit request is processing. (Use ALL CAPS for cased alphabets: Latin, Greek, Cyrillic, etc.)"
+  },
+  "savingMessageEditFailedLabel": "ПРАВКИ НЕ СОХРАНЕНЫ",
+  "@savingMessageEditFailedLabel": {
+    "description": "Text on a message in the message list saying that a message edit request failed. (Use ALL CAPS for cased alphabets: Latin, Greek, Cyrillic, etc.)"
+  },
+  "discardDraftConfirmationDialogTitle": "Отказаться от написанного сообщения?",
+  "@discardDraftConfirmationDialogTitle": {
+    "description": "Title for a confirmation dialog for discarding message text that was typed into the compose box."
+  },
+  "discardDraftConfirmationDialogConfirmButton": "Сбросить",
+  "@discardDraftConfirmationDialogConfirmButton": {
+    "description": "Label for the 'Discard' button on a confirmation dialog for discarding message text that was typed into the compose box."
+  },
+  "composeBoxBannerButtonCancel": "Отмена",
+  "@composeBoxBannerButtonCancel": {
+    "description": "Label text for the 'Cancel' button in the compose-box banner when you are editing a message."
+  },
+  "actionSheetOptionEditMessage": "Редактировать сообщение",
+  "@actionSheetOptionEditMessage": {
+    "description": "Label for the 'Edit message' button in the message action sheet."
+  },
+  "errorMessageEditNotSaved": "Сообщение не сохранено",
+  "@errorMessageEditNotSaved": {
+    "description": "Error message for compose box when a message edit could not be saved."
+  },
+  "preparingEditMessageContentInput": "Подготовка…",
+  "@preparingEditMessageContentInput": {
+    "description": "Hint text for content input when the compose box is preparing to edit a message."
+  },
+  "composeBoxEnterTopicOrSkipHintText": "Укажите тему (или оставьте “{defaultTopicName}”)",
+  "@composeBoxEnterTopicOrSkipHintText": {
+    "description": "Hint text for topic input widget in compose box when topics are optional.",
+    "placeholders": {
+      "defaultTopicName": {
+        "type": "String",
+        "example": "general chat"
+      }
+    }
+  },
+  "composeBoxBannerLabelEditMessage": "Редактирование сообщения",
+  "@composeBoxBannerLabelEditMessage": {
+    "description": "Label text for the compose-box banner when you are editing a message."
+  },
+  "editAlreadyInProgressMessage": "Редактирование уже выполняется. Дождитесь завершения.",
+  "@editAlreadyInProgressMessage": {
+    "description": "Error message when a message edit cannot be saved because there is another edit already in progress."
+  },
+  "discardDraftForEditConfirmationDialogMessage": "При изменении сообщения текст из поля для редактирования удаляется.",
+  "@discardDraftForEditConfirmationDialogMessage": {
+    "description": "Message for a confirmation dialog for discarding message text that was typed into the compose box."
+  },
+  "actionSheetOptionListOfTopics": "Список тем",
+  "@actionSheetOptionListOfTopics": {
+    "description": "Label for navigating to a channel's topic-list page."
+  },
+  "topicsButtonLabel": "ТЕМЫ",
+  "@topicsButtonLabel": {
+    "description": "Label for message list button leading to topic-list page. (Use ALL CAPS for cased alphabets: Latin, Greek, Cyrillic, etc.)"
+  },
+  "newDmSheetSearchHintEmpty": "Добавить пользователей",
+  "@newDmSheetSearchHintEmpty": {
+    "description": "Hint text for the search bar when no users are selected"
+  },
+  "mutedUser": "Отключенный пользователь",
+  "@mutedUser": {
+    "description": "Name for a muted user to display all over the app."
+  },
+  "newDmSheetNoUsersFound": "Никто не найден",
+  "@newDmSheetNoUsersFound": {
+    "description": "Message shown in the new DM sheet when no users match the search."
+  },
+  "messageNotSentLabel": "СООБЩЕНИЕ НЕ ОТПРАВЛЕНО",
+  "@messageNotSentLabel": {
+    "description": "Text on a message in the message list saying that a send message request failed. (Use ALL CAPS for cased alphabets: Latin, Greek, Cyrillic, etc.)"
+  },
+  "actionSheetOptionHideMutedMessage": "Скрыть отключенное сообщение",
+  "@actionSheetOptionHideMutedMessage": {
+    "description": "Label for hide muted message again button on action sheet."
+  },
+  "newDmFabButtonLabel": "Новое ЛС",
+  "@newDmFabButtonLabel": {
+    "description": "Label for the floating action button (FAB) that opens the new DM sheet."
+  },
+  "newDmSheetScreenTitle": "Новое ЛС",
+  "@newDmSheetScreenTitle": {
+    "description": "Title displayed at the top of the new DM screen."
+  },
+  "newDmSheetSearchHintSomeSelected": "Добавить еще…",
+  "@newDmSheetSearchHintSomeSelected": {
+    "description": "Hint text for the search bar when at least one user is selected"
+  },
+  "errorNotificationOpenAccountNotFound": "Учетная запись, связанная с этим уведомлением, не найдена.",
+  "@errorNotificationOpenAccountNotFound": {
+    "description": "Error message when the account associated with the notification could not be found"
+  },
+  "channelsEmptyPlaceholder": "Вы еще не подписаны ни на один канал.",
+  "@channelsEmptyPlaceholder": {
+    "description": "Centered text on the 'Channels' page saying that there is no content to show."
+  },
+  "recentDmConversationsEmptyPlaceholder": "У вас пока нет личных сообщений! Почему бы не начать беседу?",
+  "@recentDmConversationsEmptyPlaceholder": {
+    "description": "Centered text on the 'Direct messages' page saying that there is no content to show."
+  },
+  "newDmSheetComposeButtonLabel": "Написать",
+  "@newDmSheetComposeButtonLabel": {
+    "description": "Label for the compose button in the new DM sheet that starts composing a message to the selected users."
+  },
+  "inboxEmptyPlaceholder": "Нет непрочитанных входящих сообщений. Используйте кнопки ниже для просмотра объединенной ленты или списка каналов.",
+  "@inboxEmptyPlaceholder": {
+    "description": "Centered text on the 'Inbox' page saying that there is no content to show."
+  },
+  "initialAnchorSettingNewestAlways": "Самое новое сообщение",
+  "@initialAnchorSettingNewestAlways": {
+    "description": "Label for a value of setting controlling initial anchor of message list."
+  },
+  "initialAnchorSettingTitle": "Где открывать ленту сообщений",
+  "@initialAnchorSettingTitle": {
+    "description": "Title of setting controlling initial anchor of message list."
+  },
+  "discardDraftForOutboxConfirmationDialogMessage": "При восстановлении неотправленного сообщения содержимое поля редактирования очищается.",
+  "@discardDraftForOutboxConfirmationDialogMessage": {
+    "description": "Message for a confirmation dialog when restoring an outbox message, for discarding message text that was typed into the compose box."
+  },
+  "initialAnchorSettingFirstUnreadAlways": "Первое непрочитанное сообщение",
+  "@initialAnchorSettingFirstUnreadAlways": {
+    "description": "Label for a value of setting controlling initial anchor of message list."
+  },
+  "initialAnchorSettingDescription": "Можно открывать ленту сообщений на первом непрочитанном сообщении или на самом новом.",
+  "@initialAnchorSettingDescription": {
+    "description": "Description of setting controlling initial anchor of message list."
+  },
+  "initialAnchorSettingFirstUnreadConversations": "Первое непрочитанное сообщение при просмотре бесед, самое новое в остальных местах",
+  "@initialAnchorSettingFirstUnreadConversations": {
+    "description": "Label for a value of setting controlling initial anchor of message list."
+  },
+  "actionSheetOptionQuoteMessage": "Цитировать сообщение",
+  "@actionSheetOptionQuoteMessage": {
+    "description": "Label for the 'Quote message' button in the message action sheet."
+  },
+  "markReadOnScrollSettingTitle": "Отмечать сообщения как прочитанные при прокрутке",
+  "@markReadOnScrollSettingTitle": {
+    "description": "Title of setting controlling which message-list views should mark read on scroll."
+  },
+  "markReadOnScrollSettingDescription": "При прокрутке сообщений автоматически отмечать их как прочитанные?",
+  "@markReadOnScrollSettingDescription": {
+    "description": "Description of setting controlling which message-list views should mark read on scroll."
+  },
+  "markReadOnScrollSettingConversations": "Только при просмотре бесед",
+  "@markReadOnScrollSettingConversations": {
+    "description": "Label for a value of setting controlling which message-list views should mark read on scroll."
+  },
+  "markReadOnScrollSettingNever": "Никогда",
+  "@markReadOnScrollSettingNever": {
+    "description": "Label for a value of setting controlling which message-list views should mark read on scroll."
+  },
+  "markReadOnScrollSettingAlways": "Всегда",
+  "@markReadOnScrollSettingAlways": {
+    "description": "Label for a value of setting controlling which message-list views should mark read on scroll."
+  },
+  "markReadOnScrollSettingConversationsDescription": "Сообщения будут автоматически помечаться как прочитанные только при просмотре отдельной темы или личной беседы.",
+  "@markReadOnScrollSettingConversationsDescription": {
+    "description": "Description for a value of setting controlling which message-list views should mark read on scroll."
+  },
+  "upgradeWelcomeDialogDismiss": "Приступим!",
+  "@upgradeWelcomeDialogDismiss": {
+    "description": "Label for button dismissing dialog shown on first upgrade from the legacy Zulip app."
+  },
+  "upgradeWelcomeDialogMessage": "Вы найдете привычные возможности в более быстром и легком приложении.",
+  "@upgradeWelcomeDialogMessage": {
+    "description": "Message text for dialog shown on first upgrade from the legacy Zulip app."
+  },
+  "upgradeWelcomeDialogTitle": "Добро пожаловать в новое приложение Zulip!",
+  "@upgradeWelcomeDialogTitle": {
+    "description": "Title for dialog shown on first upgrade from the legacy Zulip app."
+  },
+  "upgradeWelcomeDialogLinkText": "Ознакомьтесь с анонсом в блоге!",
+  "@upgradeWelcomeDialogLinkText": {
+    "description": "Text of link in dialog shown on first upgrade from the legacy Zulip app."
+  },
+  "emptyMessageList": "Здесь нет сообщений.",
+  "@emptyMessageList": {
+    "description": "Placeholder for some message-list pages when there are no messages."
+  },
+  "emptyMessageListSearch": "Ничего не найдено.",
+  "@emptyMessageListSearch": {
+    "description": "Placeholder for the 'Search' page when there are no messages."
+  },
+  "searchMessagesPageTitle": "Поиск",
+  "@searchMessagesPageTitle": {
+    "description": "Page title for the 'Search' message view."
+  },
+  "searchMessagesHintText": "Поиск",
+  "@searchMessagesHintText": {
+    "description": "Hint text for the message search text field."
+  },
+  "searchMessagesClearButtonTooltip": "Очистить",
+  "@searchMessagesClearButtonTooltip": {
+    "description": "Tooltip for the 'x' button in the search text field."
+  },
+  "revealButtonLabel": "Показать сообщение",
+  "@revealButtonLabel": {
+    "description": "Label for the button revealing hidden message from a muted sender in message list."
   }
 }

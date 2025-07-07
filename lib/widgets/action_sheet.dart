@@ -12,6 +12,7 @@ import '../api/model/model.dart';
 import '../api/route/channels.dart';
 import '../api/route/messages.dart';
 import '../generated/l10n/zulip_localizations.dart';
+import '../model/binding.dart';
 import '../model/emoji.dart';
 import '../model/internal_link.dart';
 import '../model/narrow.dart';
@@ -28,6 +29,7 @@ import 'page.dart';
 import 'store.dart';
 import 'text.dart';
 import 'theme.dart';
+import 'topic_list.dart';
 
 void _showActionSheet(
   BuildContext context, {
@@ -174,22 +176,41 @@ void showChannelActionSheet(BuildContext context, {
   final pageContext = PageRoot.contextOf(context);
   final store = PerAccountStoreWidget.of(pageContext);
 
-  final optionButtons = <ActionSheetMenuItemButton>[];
+  final optionButtons = <ActionSheetMenuItemButton>[
+    TopicListButton(pageContext: pageContext, channelId: channelId),
+  ];
+
   final unreadCount = store.unreads.countInChannelNarrow(channelId);
   if (unreadCount > 0) {
     optionButtons.add(
       MarkChannelAsReadButton(pageContext: pageContext, channelId: channelId));
   }
-  if (optionButtons.isEmpty) {
-    // TODO(a11y): This case makes a no-op gesture handler; as a consequence,
-    //   we're presenting some UI (to people who use screen-reader software) as
-    //   though it offers a gesture interaction that it doesn't meaningfully
-    //   offer, which is confusing. The solution here is probably to remove this
-    //   is-empty case by having at least one button that's always present,
-    //   such as "copy link to channel".
-    return;
-  }
+
   _showActionSheet(pageContext, optionButtons: optionButtons);
+}
+
+class TopicListButton extends ActionSheetMenuItemButton {
+  const TopicListButton({
+    super.key,
+    required this.channelId,
+    required super.pageContext,
+  });
+
+  final int channelId;
+
+  @override
+  IconData get icon => ZulipIcons.topics;
+
+  @override
+  String label(ZulipLocalizations zulipLocalizations) {
+    return zulipLocalizations.actionSheetOptionListOfTopics;
+  }
+
+  @override
+  void onPressed() {
+    Navigator.push(pageContext,
+      TopicListPage.buildRoute(context: pageContext, streamId: channelId));
+  }
 }
 
 class MarkChannelAsReadButton extends ActionSheetMenuItemButton {
@@ -304,9 +325,7 @@ void showTopicActionSheet(BuildContext context, {
 
   // TODO: check for other cases that may disallow this action (e.g.: time
   //   limit for editing topics).
-  if (someMessageIdInTopic != null
-      // ignore: unnecessary_null_comparison // null topic names soon to be enabled
-      && topic.displayName != null) {
+  if (someMessageIdInTopic != null && topic.displayName != null) {
     optionButtons.add(ResolveUnresolveButton(pageContext: pageContext,
       topic: topic,
       someMessageIdInTopic: someMessageIdInTopic));
@@ -556,6 +575,8 @@ void showMessageActionSheet({required BuildContext context, required Message mes
   final pageContext = PageRoot.contextOf(context);
   final store = PerAccountStoreWidget.of(pageContext);
 
+  final popularEmojiLoaded = store.popularEmojiCandidates().isNotEmpty;
+
   // The UI that's conditioned on this won't live-update during this appearance
   // of the action sheet (we avoid calling composeBoxControllerOf in a build
   // method; see its doc).
@@ -568,16 +589,24 @@ void showMessageActionSheet({required BuildContext context, required Message mes
   final markAsUnreadSupported = store.zulipFeatureLevel >= 155; // TODO(server-6)
   final showMarkAsUnreadButton = markAsUnreadSupported && isMessageRead;
 
+  final isSenderMuted = store.isUserMuted(message.senderId);
+
   final optionButtons = [
-    ReactionButtons(message: message, pageContext: pageContext),
+    if (popularEmojiLoaded)
+      ReactionButtons(message: message, pageContext: pageContext),
     StarButton(message: message, pageContext: pageContext),
     if (isComposeBoxOffered)
       QuoteAndReplyButton(message: message, pageContext: pageContext),
     if (showMarkAsUnreadButton)
       MarkAsUnreadButton(message: message, pageContext: pageContext),
+    if (isSenderMuted)
+      // The message must have been revealed in order to open this action sheet.
+      UnrevealMutedMessageButton(message: message, pageContext: pageContext),
     CopyMessageTextButton(message: message, pageContext: pageContext),
     CopyMessageLinkButton(message: message, pageContext: pageContext),
     ShareButton(message: message, pageContext: pageContext),
+    if (_getShouldShowEditButton(pageContext, message))
+      EditButton(message: message, pageContext: pageContext),
   ];
 
   _showActionSheet(pageContext, optionButtons: optionButtons);
@@ -591,6 +620,36 @@ abstract class MessageActionSheetMenuItemButton extends ActionSheetMenuItemButto
   }) : assert(pageContext.findAncestorWidgetOfExactType<MessageListPage>() != null);
 
   final Message message;
+}
+
+bool _getShouldShowEditButton(BuildContext pageContext, Message message) {
+  final store = PerAccountStoreWidget.of(pageContext);
+
+  final messageListPage = MessageListPage.ancestorOf(pageContext);
+  final composeBoxState = messageListPage.composeBoxState;
+  final isComposeBoxOffered = composeBoxState != null;
+  final composeBoxController = composeBoxState?.controller;
+
+  final editMessageErrorStatus = store.getEditMessageErrorStatus(message.id);
+  final editMessageInProgress =
+    // The compose box is in edit-message mode, with Cancel/Save instead of Send.
+    composeBoxController is EditMessageComposeBoxController
+    // An edit request is in progress or the error state.
+    || editMessageErrorStatus != null;
+
+  final now = ZulipBinding.instance.utcNow().millisecondsSinceEpoch ~/ 1000;
+  final editLimit = store.realmMessageContentEditLimitSeconds;
+  final outsideEditLimit =
+    editLimit != null
+    && editLimit != 0 // TODO(server-6) remove (pre-FL 138, 0 represents no limit)
+    && now - message.timestamp > editLimit;
+
+  return message.senderId == store.selfUserId
+    && isComposeBoxOffered
+    && store.realmAllowMessageEditing
+    && !outsideEditLimit
+    && !editMessageInProgress
+    && message.poll == null; // messages with polls cannot be edited
 }
 
 class ReactionButtons extends StatelessWidget {
@@ -667,11 +726,18 @@ class ReactionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    assert(EmojiStore.popularEmojiCandidates.every(
+    final store = PerAccountStoreWidget.of(pageContext);
+    final popularEmojiCandidates = store.popularEmojiCandidates();
+    assert(popularEmojiCandidates.every(
       (emoji) => emoji.emojiType == ReactionType.unicodeEmoji));
+    // (if this is empty, the widget isn't built in the first place)
+    assert(popularEmojiCandidates.isNotEmpty);
+    // UI not designed to handle more than 6 popular emoji.
+    // (We might have fewer if ServerEmojiData is lacking expected data,
+    // but that looks fine in manual testing, even when there's just one.)
+    assert(popularEmojiCandidates.length <= 6);
 
     final zulipLocalizations = ZulipLocalizations.of(context);
-    final store = PerAccountStoreWidget.of(pageContext);
     final designVariables = DesignVariables.of(context);
 
     bool hasSelfVote(EmojiCandidate emoji) {
@@ -687,7 +753,7 @@ class ReactionButtons extends StatelessWidget {
         color: designVariables.contextMenuItemBg.withFadedAlpha(0.12)),
       child: Row(children: [
         Flexible(child: Row(spacing: 1, children: List.unmodifiable(
-          EmojiStore.popularEmojiCandidates.mapIndexed((index, emoji) =>
+          popularEmojiCandidates.mapIndexed((index, emoji) =>
             _buildButton(
               context: context,
               emoji: emoji,
@@ -772,7 +838,7 @@ class QuoteAndReplyButton extends MessageActionSheetMenuItemButton {
 
   @override
   String label(ZulipLocalizations zulipLocalizations) {
-    return zulipLocalizations.actionSheetOptionQuoteAndReply;
+    return zulipLocalizations.actionSheetOptionQuoteMessage;
   }
 
   @override void onPressed() async {
@@ -835,9 +901,35 @@ class MarkAsUnreadButton extends MessageActionSheetMenuItemButton {
   }
 
   @override void onPressed() async {
-    final narrow = findMessageListPage().narrow;
+    final messageListPage = findMessageListPage();
     unawaited(ZulipAction.markNarrowAsUnreadFromMessage(pageContext,
-      message, narrow));
+      message, messageListPage.narrow));
+    // TODO should we alert the user about this change somehow? A snackbar?
+    messageListPage.markReadOnScroll = false;
+  }
+}
+
+class UnrevealMutedMessageButton extends MessageActionSheetMenuItemButton {
+  UnrevealMutedMessageButton({
+    super.key,
+    required super.message,
+    required super.pageContext,
+  });
+
+  @override
+  IconData get icon => ZulipIcons.eye_off;
+
+  @override
+  String label(ZulipLocalizations zulipLocalizations) {
+    return zulipLocalizations.actionSheetOptionHideMutedMessage;
+  }
+
+  @override
+  void onPressed() {
+    // The message should have been revealed in order to reach this action sheet.
+    assert(MessageListPage.revealedMutedMessagesOf(pageContext)
+      .isMutedMessageRevealed(message.id));
+    findMessageListPage().unrevealMutedMessage(message.id);
   }
 }
 
@@ -941,7 +1033,8 @@ class ShareButton extends MessageActionSheetMenuItemButton {
     //     https://pub.dev/packages/share_plus#ipad
     //   Perhaps a wart in the API; discussion:
     //     https://github.com/zulip/zulip-flutter/pull/12#discussion_r1130146231
-    final result = await Share.share(rawContent);
+    final result =
+      await SharePlus.instance.share(ShareParams(text: rawContent));
 
     switch (result.status) {
       // The plugin isn't very helpful: "The status can not be determined".
@@ -954,5 +1047,24 @@ class ShareButton extends MessageActionSheetMenuItemButton {
       case ShareResultStatus.dismissed:
         // nothing to do
     }
+  }
+}
+
+class EditButton extends MessageActionSheetMenuItemButton {
+  EditButton({super.key, required super.message, required super.pageContext});
+
+  @override
+  IconData get icon => ZulipIcons.edit;
+
+  @override
+  String label(ZulipLocalizations zulipLocalizations) =>
+    zulipLocalizations.actionSheetOptionEditMessage;
+
+  @override void onPressed() async {
+    final composeBoxState = findMessageListPage().composeBoxState;
+    if (composeBoxState == null) {
+      throw StateError('Compose box unexpectedly absent when edit-message button pressed');
+    }
+    composeBoxState.startEditInteraction(message.id);
   }
 }

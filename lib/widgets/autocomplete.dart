@@ -130,7 +130,7 @@ class _AutocompleteFieldState<QueryT extends AutocompleteQuery, ResultT extends 
       //   `optionsBuilder` we pass is just a function that returns
       //   _resultsToDisplay, which is computed with lots of help from
       //   AutocompleteView.
-      optionsViewBuilder: (context, _, __) {
+      optionsViewBuilder: (context, _, _) {
         return Align(
           alignment: Alignment.bottomLeft,
           child: Material(
@@ -153,7 +153,7 @@ class _AutocompleteFieldState<QueryT extends AutocompleteQuery, ResultT extends 
       // The third isn't helpful; it lets us opt into behavior we don't actually
       // want (see discussion:
       //   <https://chat.zulip.org/#narrow/stream/243-mobile-team/topic/autocomplete.20UI/near/1599994>)
-      fieldViewBuilder: (context, _, __, ___) => widget.fieldViewBuilder(context),
+      fieldViewBuilder: (context, _, _, _) => widget.fieldViewBuilder(context),
     );
   }
 }
@@ -275,10 +275,9 @@ class _MentionAutocompleteItem extends StatelessWidget {
     String? sublabel;
     switch (option) {
       case UserMentionAutocompleteResult(:var userId):
-        final user = store.getUser(userId)!; // must exist because UserMentionAutocompleteResult
         avatar = Avatar(userId: userId, size: 36, borderRadius: 4);
-        label = user.fullName;
-        sublabel = store.userDisplayEmail(user);
+        label = store.userDisplayName(userId);
+        sublabel = store.userDisplayEmail(userId);
       case WildcardMentionAutocompleteResult(:var wildcardOption):
         avatar = SizedBox.square(dimension: 36,
           child: const Icon(ZulipIcons.three_person, size: 24));
@@ -416,13 +415,11 @@ class TopicAutocomplete extends AutocompleteField<TopicAutocompleteQuery, TopicA
   @override
   Widget buildItem(BuildContext context, int index, TopicAutocompleteResult option) {
     final Widget child;
-    // ignore: unnecessary_null_comparison // null topic names soon to be enabled
     if (option.topic.displayName == null) {
       final store = PerAccountStoreWidget.of(context);
       child = Text(store.realmEmptyTopicDisplayName,
         style: const TextStyle(fontStyle: FontStyle.italic));
     } else {
-      // ignore: unnecessary_non_null_assertion // null topic names soon to be enabled
       child = Text(option.topic.displayName!);
     }
 

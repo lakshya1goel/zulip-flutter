@@ -19,7 +19,10 @@ sealed class Narrow {
   /// This does not necessarily mean the message list would show this message
   /// when navigated to this narrow; in particular it does not address the
   /// question of whether the stream or topic, or the sending user, is muted.
-  bool containsMessage(MessageBase message);
+  ///
+  /// Null when the client is unable to predict whether the message
+  /// satisfies the filters of this narrow, e.g. when this is a search narrow.
+  bool? containsMessage(MessageBase message);
 
   /// This narrow, expressed as an [ApiNarrow].
   ApiNarrow apiEncode();
@@ -364,4 +367,32 @@ class StarredMessagesNarrow extends Narrow {
 
   @override
   int get hashCode => 'StarredMessagesNarrow'.hashCode;
+}
+
+/// A keyword-search narrow.
+///
+/// [keyword] must have been trimmed with [String.trim].
+class KeywordSearchNarrow extends Narrow {
+  KeywordSearchNarrow(this.keyword)
+    : assert(keyword.trim() == keyword);
+
+  final String keyword;
+
+  @override
+  bool? containsMessage(MessageBase message) => null;
+
+  @override
+  ApiNarrow apiEncode() => [ApiNarrowSearch(keyword)];
+
+  @override
+  String toString() => 'KeywordSearchNarrow($keyword)';
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! KeywordSearchNarrow) return false;
+    return other.keyword == keyword;
+  }
+
+  @override
+  int get hashCode => Object.hash('KeywordSearchNarrow', keyword);
 }

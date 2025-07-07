@@ -34,6 +34,9 @@ class InitialSnapshot {
   ///   * https://zulip.com/api/update-realm-user-settings-defaults#parameter-email_address_visibility
   final EmailAddressVisibility? emailAddressVisibility; // TODO(server-7): remove
 
+  final int serverPresencePingIntervalSeconds;
+  final int serverPresenceOfflineThresholdSeconds;
+
   // TODO(server-8): Remove the default values.
   @JsonKey(defaultValue: 15000)
   final int serverTypingStartedExpiryPeriodMilliseconds;
@@ -44,9 +47,18 @@ class InitialSnapshot {
 
   // final List<…> mutedTopics; // TODO(#422) we ignore this feature on older servers
 
+  final List<MutedUserItem> mutedUsers;
+
+  // In the modern format because we pass `slim_presence`.
+  // TODO(#1611) stop passing and mentioning the deprecated slim_presence;
+  //   presence_last_update_id will be why we get the modern format.
+  final Map<int, PerUserPresence> presences;
+
   final Map<String, RealmEmojiItem> realmEmoji;
 
   final List<RecentDmConversation> recentPrivateConversations;
+
+  final List<SavedSnippet>? savedSnippets; // TODO(server-10)
 
   final List<Subscription> subscriptions;
 
@@ -81,6 +93,8 @@ class InitialSnapshot {
 
   final bool realmAllowMessageEditing;
   final int? realmMessageContentEditLimitSeconds;
+
+  final bool realmPresenceDisabled;
 
   final Map<String, RealmDefaultExternalAccount> realmDefaultExternalAccounts;
 
@@ -127,11 +141,16 @@ class InitialSnapshot {
     required this.alertWords,
     required this.customProfileFields,
     required this.emailAddressVisibility,
+    required this.serverPresencePingIntervalSeconds,
+    required this.serverPresenceOfflineThresholdSeconds,
     required this.serverTypingStartedExpiryPeriodMilliseconds,
     required this.serverTypingStoppedWaitPeriodMilliseconds,
     required this.serverTypingStartedWaitPeriodMilliseconds,
+    required this.mutedUsers,
+    required this.presences,
     required this.realmEmoji,
     required this.recentPrivateConversations,
+    required this.savedSnippets,
     required this.subscriptions,
     required this.unreadMsgs,
     required this.streams,
@@ -142,6 +161,7 @@ class InitialSnapshot {
     required this.realmWaitingPeriodThreshold,
     required this.realmAllowMessageEditing,
     required this.realmMessageContentEditLimitSeconds,
+    required this.realmPresenceDisabled,
     required this.realmDefaultExternalAccounts,
     required this.maxFileUploadSizeMib,
     required this.serverEmojiDataUrl,
